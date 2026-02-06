@@ -1,0 +1,44 @@
+services:
+  # Base Agent Service (Template)
+  # Run individual agents like: docker compose run --rm agent bash
+  agent:
+    build: .
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - CONVEX_URL=${VITE_CONVEX_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    working_dir: /app
+    command: tail -f /dev/null
+
+  # Example of a specific running agent (Jarvis)
+  jarvis:
+    extends: agent
+    container_name: agent-jarvis
+    command: tsx scripts/agent-runner.ts --config=agents/configs/jarvis.soul.md
+
+  # Example of Shuri
+  shuri:
+    extends: agent
+    container_name: agent-shuri
+    command: tsx scripts/agent-runner.ts --config=agents/configs/shuri.soul.md
+
+  # Fury (Researcher)
+  fury:
+    extends: agent
+    container_name: agent-fury
+    command: tsx scripts/agent-runner.ts --config=agents/configs/fury.soul.md
+
+  # Vision (SEO)
+  vision:
+    extends: agent
+    container_name: agent-vision
+    command: tsx scripts/agent-runner.ts --config=agents/configs/vision.soul.md
+
+  # Friday (Developer)
+  friday:
+    extends: agent
+    container_name: agent-friday
+    command: tsx scripts/agent-runner.ts --config=agents/configs/friday.soul.md
