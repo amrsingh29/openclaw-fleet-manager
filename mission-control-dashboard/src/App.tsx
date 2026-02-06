@@ -127,7 +127,13 @@ function AppContent() {
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Active Agents</h3>
                   <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                     {agents.map((agent: any) => (
-                      <AgentCard key={agent._id} agent={agent} />
+                      <AgentCard
+                        key={agent._id}
+                        name={agent.name}
+                        role={agent.role}
+                        status={agent.status}
+                        lastHeartbeat={agent.lastHeartbeat || Date.now()}
+                      />
                     ))}
                     {agents.length === 0 && (
                       <div className="text-xs opacity-50 italic py-2">No agents online. Run agent-runner script.</div>

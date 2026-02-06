@@ -182,17 +182,18 @@ const brains: Record<string, AgentBrain> = {};
 async function getBrain(agentName: string, configPath: string) {
     if (brains[agentName]) return brains[agentName];
 
-    // Load SOUL content (mocking the read for now as we have the parsed config, 
-    // but better to read raw file for full context if 'bio' isn't in frontmatter)
-    // For this V1, we'll assume the 'bio' from the parsed config is enough.
-    // Ideally: const soulContent = await fs.readFile(configPath, 'utf8');
-
-    // Re-read config to get bio if not passed
-    // (Simplification: using a default bio if missing)
-    const bio = `You are a helpful AI agent named ${agentName}.`;
+    // Read the full SOUL file to get the personality
+    let soulContent = `You are ${agentName}.`;
+    try {
+        if (configPath) {
+            soulContent = fs.readFileSync(configPath, "utf-8");
+        }
+    } catch (e) {
+        console.error("Error reading soul:", e);
+    }
 
     console.log(`🧠 Initializing Brain for ${agentName}...`);
-    brains[agentName] = new AgentBrain(agentName, bio);
+    brains[agentName] = new AgentBrain(agentName, soulContent);
     return brains[agentName];
 }
 
@@ -215,14 +216,43 @@ async function processChat(agentId: any, agentName: string, configPath: string) 
             const brain = await getBrain(agentName, configPath);
 
             for (const msg of newMessages) {
-                if (!msg.fromAgentId) {
-                    console.log(`💬 Incoming: "${msg.content}"`);
+                // Modified Logic: Reply if (User) OR (Mentioned) AND (Not Self)
+                const isUser = !msg.fromAgentId;
+                const isSelf = msg.fromAgentId === agentId; // Or check name if ID varies
+                const isMentioned = msg.content.toLowerCase().includes(AGENT_NAME.toLowerCase());
 
-                    // THINKING...
-                    const reply = await brain.ask(
-                        [], // TODO: Pass recent history for context
-                        msg.content
-                    );
+                if (!isSelf && (isUser || isMentioned)) {
+                    console.log(`💬 Incoming from ${isUser ? "User" : "Agent"}: "${msg.content}"`);
+
+                    // 1. Ask Brain
+                    let reply = await brain.ask([], msg.content);
+
+                    // 2. Check for Tool Usage (JSON)
+                    if (reply.includes("```json")) {
+                        console.log("🛠️ Agent using tool...");
+                        try {
+                            const match = reply.match(/```json\n([\s\S]*?)\n```/);
+                            if (match) {
+                                const toolCall = JSON.parse(match[1]);
+                                console.log(`> Executing: ${toolCall.tool}`);
+
+                                // Dynamic Import to avoid top-level issues
+                                const { ToolRegistry } = await import("./tools.js");
+                                const result = await ToolRegistry.execute(toolCall.tool, toolCall.args);
+
+                                console.log(`> Result: ${result}`);
+
+                                // 3. Recursion: Feed result back to brain
+                                reply = await brain.ask(
+                                    [{ role: 'assistant', content: reply }],
+                                    `System: Tool executed. Result: ${result}. Now answer the user.`
+                                );
+                            }
+                        } catch (err) {
+                            console.error("Tool execution failed:", err);
+                            reply += "\n(System: I tried to use a tool but failed.)";
+                        }
+                    }
 
                     await client.mutation(api.messages.send, {
                         channelId: CHANNEL,
