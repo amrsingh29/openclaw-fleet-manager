@@ -1,13 +1,17 @@
 import { motion } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import { useTheme } from '../context/ThemeContext';
 
 interface LayoutProps {
     children: React.ReactNode;
+    onTeamSelect?: (teamId: string) => void;
 }
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ children, onTeamSelect }: LayoutProps) {
     const { theme, toggleTheme } = useTheme();
+    const teams = useQuery(api.teams.list) || [];
 
     return (
         <div className={`flex h-screen overflow-hidden font-sans selection:bg-cyan-500/30 transition-colors duration-300
@@ -44,21 +48,36 @@ export function Layout({ children }: LayoutProps) {
                     </h1>
                 </div>
 
-                <nav className="space-y-2 flex-1">
-                    {['Dashboard', 'Agents', 'Tasks', 'Settings'].map((item) => (
-                        <button key={item} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium group
-                            ${theme === 'dark'
-                                ? 'text-slate-300 hover:text-white hover:bg-white/10'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}
-                        `}>
-                            <div className={`w-5 h-5 rounded transition-colors
+                <nav className="space-y-2 flex-1 overflow-y-auto no-scrollbar">
+                    {/* Main Nav */}
+                    <div className="mb-6">
+                        <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 hidden md:block">
+                            Platform
+                        </h3>
+                        {children}
+                    </div>
+
+                    {/* Teams Section */}
+                    <div>
+                        <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 hidden md:block">
+                            Departments
+                        </h3>
+                        {teams.map((team: any) => (
+                            <button
+                                key={team._id}
+                                onClick={() => onTeamSelect?.(team._id)}
+                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium group
                                 ${theme === 'dark'
-                                    ? 'bg-white/20 group-hover:bg-cyan-500/50'
-                                    : 'bg-slate-300 group-hover:bg-blue-500/50'}
-                            `} />
-                            <span className="hidden md:block">{item}</span>
-                        </button>
-                    ))}
+                                        ? 'text-slate-300 hover:text-white hover:bg-white/10'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}
+                            `}>
+                                <div className={`w-2 h-2 rounded-full transition-colors
+                                    ${theme === 'dark' ? 'bg-cyan-500' : 'bg-blue-500'}
+                                `} />
+                                <span className="hidden md:block truncate">{team.name}</span>
+                            </button>
+                        ))}
+                    </div>
                 </nav>
 
                 {/* Theme Toggle */}

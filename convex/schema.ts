@@ -2,9 +2,19 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+    teams: defineTable({
+        name: v.string(),
+        slug: v.string(), // "hr", "devops"
+        mission: v.optional(v.string()),
+        allowedTools: v.optional(v.array(v.string())),
+        createdTime: v.number(),
+    }).index("by_slug", ["slug"]),
+
     agents: defineTable({
         name: v.string(),
         role: v.string(),
+        teamId: v.optional(v.id("teams")), // Link to department
+        soul: v.optional(v.string()), // The prompt/personality
         status: v.union(v.literal("idle"), v.literal("active"), v.literal("working"), v.literal("blocked"), v.literal("offline")),
         currentTaskId: v.optional(v.id("tasks")),
         sessionKey: v.string(),

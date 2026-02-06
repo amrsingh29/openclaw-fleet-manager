@@ -7,19 +7,20 @@ import { ActivityFeed } from './components/ActivityFeed';
 import { TaskBoard } from './components/TaskBoard';
 import { NewMissionModal } from './components/NewMissionModal';
 import { TaskDetailsModal } from './components/TaskDetailsModal';
-import { Plus, PanelRightClose, PanelRightOpen, Activity, MessageSquare, Users, Settings } from 'lucide-react';
+import { Plus, Activity, MessageSquare, Users, Settings } from 'lucide-react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AnimatePresence } from 'framer-motion';
 
 import { WarRoom } from './components/WarRoom';
+import { TeamView } from './components/TeamView';
 
 function AppContent() {
   const agents = useQuery(api.agents.list) || [];
   const createMission = useMutation(api.tasks.create);
-  const [isIntelOpen, setIsIntelOpen] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'warroom'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'warroom' | 'team'>('dashboard');
+  const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
   const { theme } = useTheme();
 
   const handleCreateMission = async (title: string, description: string) => {
@@ -35,7 +36,10 @@ function AppContent() {
     <div className={`flex h-screen overflow-hidden text-sm ${theme === 'dark' ? 'bg-[#0d1117] text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
 
       {/* Sidebar */}
-      <Layout>
+      <Layout onTeamSelect={(teamId) => {
+        setCurrentTeamId(teamId);
+        setCurrentView('team');
+      }}>
         <div className="flex flex-col gap-2 w-full">
           <button
             onClick={() => setCurrentView('dashboard')}
@@ -82,6 +86,8 @@ function AppContent() {
         {/* View Switcher */}
         {currentView === 'warroom' ? (
           <WarRoom />
+        ) : currentView === 'team' && currentTeamId ? (
+          <TeamView teamId={currentTeamId} />
         ) : (
           <>
             {/* Header */}
