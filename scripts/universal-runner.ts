@@ -63,10 +63,29 @@ async function main() {
 
 // --- LOOPS ---
 
+const HEARTBEAT_INTERVAL = 10000; // 10s (Faster to detect changes)
+
 function startHeartbeat(id: any) {
     setInterval(async () => {
-        await client.mutation(api.agents.heartbeat, { id }).catch(console.error);
-    }, 30000);
+        try {
+            await client.mutation(api.agents.heartbeat, { id });
+
+            // Hot Reload: Check if Soul changed
+            const freshConfig: any = await client.mutation(api.agents.getIdentity, {
+                name: agentConfig.name,
+                sessionKey: agentConfig.sessionKey
+            });
+
+            if (freshConfig.soul !== agentConfig.soul) {
+                console.log(`♻️ Soul Update Detected for ${agentConfig.name}! Reloading Brain...`);
+                agentConfig = freshConfig; // Update global state
+                brain = new AgentBrain(agentConfig.name, agentConfig.soul);
+                console.log(`🧠 Brain Reloaded.`);
+            }
+        } catch (err) {
+            console.error("Heartbeat Error:", err);
+        }
+    }, HEARTBEAT_INTERVAL);
 }
 
 async function runLoop(agentId: any) {
@@ -96,6 +115,8 @@ async function processTasks(agentId: any) {
         // Auto-Start
         if (myTask.status === 'assigned') {
             await client.mutation(api.tasks.updateStatus, { id: myTask._id, status: 'in_progress' });
+            // 4. Update status to Working
+            await client.mutation(api.agents.updateStatus, { id: agentId, status: 'working' });
             return;
         }
 
@@ -143,7 +164,7 @@ async function processTasks(agentId: any) {
         });
 
         if (success) {
-            await client.mutation(api.agents.updateStatus, { id: agentId, status: 'busy' });
+            await client.mutation(api.agents.updateStatus, { id: agentId, status: 'working' });
         }
     }
 }

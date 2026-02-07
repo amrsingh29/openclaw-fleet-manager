@@ -43,9 +43,12 @@ export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
                    grid-cols-5 forces 5 equal columns regardless of screen width. 
                    min-w-[760px] ensures it fits on laptop screens + sidebar + intel panel without scroll.
                 */}
-                <div className="grid grid-cols-5 gap-2 h-full min-w-[760px]">
+                {/* 
+                   Fit-to-Screen Optimization: 128px columns x 5 = 640px total. Fits in 1280px screen (Center Pane).
+                */}
+                <div className="flex h-full gap-2 min-w-[640px] pb-2 overflow-x-auto no-scrollbar snap-x">
                     {columns.map(col => (
-                        <div key={col.id} className="flex flex-col min-w-0"> {/* min-w-0 is critical for grid children to shrink */}
+                        <div key={col.id} className="flex-1 flex flex-col min-w-[128px] snap-start">
                             <div className="flex items-center justify-between mb-3 px-1">
                                 <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">{col.title}</h4>
                                 <span className="text-[10px] text-slate-600 bg-slate-500/10 px-1.5 py-0.5 rounded-full flex-none">

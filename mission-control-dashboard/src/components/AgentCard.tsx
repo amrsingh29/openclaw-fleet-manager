@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Zap, Clock } from 'lucide-react';
+import { Bot, Zap, Clock, Settings } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 interface AgentCardProps {
@@ -7,9 +7,10 @@ interface AgentCardProps {
     role: string;
     status: 'idle' | 'working' | 'active' | 'offline';
     lastHeartbeat: number;
+    onEdit?: () => void;
 }
 
-export function AgentCard({ name, role, status, lastHeartbeat }: AgentCardProps) {
+export function AgentCard({ name, role, status, lastHeartbeat, onEdit }: AgentCardProps) {
     const { theme } = useTheme();
 
     const isOffline = Date.now() - lastHeartbeat > 60000;
@@ -28,16 +29,30 @@ export function AgentCard({ name, role, status, lastHeartbeat }: AgentCardProps)
     return (
         <motion.div
             whileHover={{ y: -2 }}
-            className={`p-4 rounded-xl border relative overflow-hidden transition-colors duration-300
+            className={`p-4 rounded-xl border relative overflow-hidden transition-colors duration-300 group
                 ${theme === 'dark'
                     ? 'bg-[#1e293b] border-white/10 shadow-lg'
                     : 'bg-white border-slate-200 shadow-sm'}
             `}
         >
             {/* Status Pulse */}
-            <div className="absolute top-4 right-4 flex items-center">
-                <div className={`w-2 h-2 rounded-full ${getStatusColor(displayStatus)} ${displayStatus === 'working' ? 'animate-ping' : ''}`} />
-                <div className={`absolute w-2 h-2 rounded-full ${getStatusColor(displayStatus)}`} />
+            <div className="absolute top-4 right-4 flex items-center gap-3">
+                {/* Edit Button (Visible on Hover) */}
+                {onEdit && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                        className={`p-1.5 rounded-full transition-colors z-10
+                            ${theme === 'dark' ? 'bg-white/10 text-slate-300 hover:text-white hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200'}
+                        `}
+                    >
+                        <Settings className="w-3.5 h-3.5" />
+                    </button>
+                )}
+
+                <div className="relative flex items-center">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(displayStatus)} ${displayStatus === 'working' ? 'animate-ping' : ''}`} />
+                    <div className={`absolute w-2 h-2 rounded-full ${getStatusColor(displayStatus)}`} />
+                </div>
             </div>
 
             <div className="flex items-center gap-3 mb-4">

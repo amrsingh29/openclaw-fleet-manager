@@ -63,6 +63,20 @@ export const hire = mutation({
     }
 });
 
+export const update = mutation({
+    args: {
+        id: v.id("agents"),
+        name: v.optional(v.string()),
+        role: v.optional(v.string()),
+        teamId: v.optional(v.id("teams")),
+        soul: v.optional(v.string())
+    },
+    handler: async (ctx, args) => {
+        const { id, ...updates } = args;
+        await ctx.db.patch(id, updates);
+    }
+});
+
 export const updateStatus = mutation({
     args: { id: v.id("agents"), status: v.string() },
     handler: async (ctx, args) => {
