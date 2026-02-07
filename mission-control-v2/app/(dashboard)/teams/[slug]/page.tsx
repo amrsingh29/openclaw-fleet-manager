@@ -13,6 +13,25 @@ import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/dashboard/agent-card";
 import { RecruitAgentModal } from "@/components/dashboard/recruit-agent-modal";
 import { CreateMissionModal } from "@/components/dashboard/create-mission-modal";
+import { TeamChat } from "@/components/dashboard/team-chat";
+import { TaskBoard } from "@/components/dashboard/task-board";
+import { TaskTable } from "@/components/dashboard/task-table";
+import {
+    Cpu,
+    Globe,
+    Shield,
+    Zap,
+    Code,
+    Terminal,
+    Database,
+    Cloud,
+    Search,
+    Brain,
+    Lock,
+    User,
+    LayoutGrid,
+    List
+} from "lucide-react";
 import { EditAgentModal } from "@/components/dashboard/edit-agent-modal";
 
 export default function TeamDetailPage() {
@@ -20,6 +39,8 @@ export default function TeamDetailPage() {
     const slug = params.slug as string;
     const [isRecruitModalOpen, setIsRecruitModalOpen] = useState(false);
     const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false);
+    const [selectedTab, setSelectedTab] = useState("overview");
+    const [viewMode, setViewMode] = useState<"board" | "table">("board");
     const [agentToEdit, setAgentToEdit] = useState<any>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -28,16 +49,22 @@ export default function TeamDetailPage() {
     const allAgents = useQuery(api.agents.list) || [];
     const allTasks = useQuery(api.tasks.list) || [];
 
-    if (!team) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold mb-2">Team not found</h2>
-                    <p className="text-muted-foreground">The team "{slug}" does not exist.</p>
-                </div>
-            </div>
-        );
-    }
+    // Tool icon mapping
+    const getToolIcon = (tool: string) => {
+        const t = tool.toLowerCase();
+        if (t.includes("code") || t.includes("github")) return <Code className="w-4 h-4" />;
+        if (t.includes("terminal") || t.includes("cli")) return <Terminal className="w-4 h-4" />;
+        if (t.includes("db") || t.includes("sql") || t.includes("mongo")) return <Database className="w-4 h-4" />;
+        if (t.includes("cloud") || t.includes("aws") || t.includes("vercel")) return <Cloud className="w-4 h-4" />;
+        if (t.includes("search") || t.includes("web") || t.includes("google")) return <Search className="w-4 h-4" />;
+        if (t.includes("ai") || t.includes("llm") || t.includes("gpt")) return <Brain className="w-4 h-4" />;
+        if (t.includes("security") || t.includes("auth")) return <Lock className="w-4 h-4" />;
+        if (t.includes("network")) return <Globe className="w-4 h-4" />;
+        if (t.includes("infra")) return <Cpu className="w-4 h-4" />;
+        return <Zap className="w-4 h-4" />;
+    };
+
+    if (!team) return <div className="p-8 text-center">Department not found.</div>;
 
     const teamAgents = allAgents.filter((a) => a.teamId === team._id);
     const teamTasks = allTasks.filter((t) => t.teamId === team._id);
@@ -50,6 +77,15 @@ export default function TeamDetailPage() {
     const activeRate = teamAgents.length > 0 ? Math.round((activeAgents.length / teamAgents.length) * 100) : 0;
     const completedTasks = teamTasks.filter((t) => t.status === "done").length;
     const avgCompletionTime = "2.3h"; // TODO: Calculate from actual data
+
+    const stats = {
+        totalAgents: teamAgents.length,
+        activeAgents: activeAgents.length,
+        totalTasks: teamTasks.length,
+        completedTasks: teamTasks.filter((t) => t.status === "done").length,
+        activeTasks: teamTasks.filter((t) => t.status === "in_progress").length,
+        completionRate: teamTasks.length > 0 ? (completedTasks / teamTasks.length) * 100 : 0,
+    };
 
     return (
         <div className="flex-1 overflow-y-auto">
@@ -153,96 +189,126 @@ export default function TeamDetailPage() {
 
             {/* Tabs Section */}
             <div className="max-w-7xl mx-auto px-8 py-6">
-                <Tabs defaultValue="overview" className="w-full">
-                    <TabsList className="mb-6">
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="agents">Agents</TabsTrigger>
-                        <TabsTrigger value="missions">Missions</TabsTrigger>
-                        <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                        <TabsTrigger value="settings">Settings</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="overview" className="space-y-6">
-                        {/* Team Health */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Team Health</CardTitle>
-                                <CardDescription>Current status and performance indicators</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-3 gap-6">
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground mb-2">Agent Status</p>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm flex items-center gap-2">
-                                                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                                                    Active
-                                                </span>
-                                                <span className="text-sm font-bold">{activeAgents.length}</span>
+                <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <TabsList className="bg-muted/50 p-1">
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="agents">Agents</TabsTrigger>
+                            <TabsTrigger value="missions">Missions</TabsTrigger>
+                            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                            <TabsTrigger value="settings">Settings</TabsTrigger>
+                        </TabsList>
+                    </div>     <TabsContent value="overview" className="space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2 space-y-6">
+                                {/* Team Health */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">Department Health</CardTitle>
+                                        <CardDescription>Real-time performance and status indicators</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                            <div className="space-y-3">
+                                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agents</p>
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                                                        <span className="text-sm font-medium">Active</span>
+                                                    </div>
+                                                    <span className="text-lg font-bold">{stats.activeAgents}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-slate-500" />
+                                                        <span className="text-sm font-medium">Offline</span>
+                                                    </div>
+                                                    <span className="text-lg font-bold">{stats.totalAgents - stats.activeAgents}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm flex items-center gap-2">
-                                                    <div className="w-2 h-2 rounded-full bg-slate-400" />
-                                                    Offline
-                                                </span>
-                                                <span className="text-sm font-bold">{teamAgents.length - activeAgents.length}</span>
+
+                                            <div className="space-y-3">
+                                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Missions</p>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium">Completed</span>
+                                                    <span className="text-lg font-bold">{stats.completedTasks}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium">In Progress</span>
+                                                    <span className="text-lg font-bold">{stats.activeTasks}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3 text-center md:text-right">
+                                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Efficiency</p>
+                                                <div className="text-3xl font-bold text-primary">{Math.round(stats.completionRate)}%</div>
+                                                <p className="text-[10px] text-muted-foreground">{stats.completedTasks} of {stats.totalTasks} missions</p>
                                             </div>
                                         </div>
-                                    </div>
+                                    </CardContent>
+                                </Card>
 
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground mb-2">Task Progress</p>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm">Completed</span>
-                                                <span className="text-sm font-bold">{completedTasks}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm">In Progress</span>
-                                                <span className="text-sm font-bold">
-                                                    {teamTasks.filter((t) => t.status === "in_progress").length}
-                                                </span>
-                                            </div>
+                                {/* Quick Actions */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">Deployment Ready</CardTitle>
+                                        <CardDescription>Initiate operations and manage resources</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="flex flex-wrap gap-3">
+                                            <Button
+                                                onClick={() => setIsCreateMissionModalOpen(true)}
+                                                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                                            >
+                                                <Zap className="w-4 h-4 mr-2" />
+                                                Launch Mission
+                                            </Button>
+                                            <Button variant="outline" onClick={() => setIsRecruitModalOpen(true)}>
+                                                <User className="w-4 h-4 mr-2" />
+                                                Recruit Agent
+                                            </Button>
+                                            <Button variant="outline">
+                                                <Terminal className="w-4 h-4 mr-2" />
+                                                Global Link
+                                            </Button>
                                         </div>
-                                    </div>
+                                    </CardContent>
+                                </Card>
 
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground mb-2">Completion Rate</p>
-                                        <div className="text-4xl font-bold text-primary">
-                                            {teamTasks.length > 0 ? Math.round((completedTasks / teamTasks.length) * 100) : 0}%
+                                {/* Capabilities */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">Department Capabilities</CardTitle>
+                                        <CardDescription>Specialized toolsets and protocols available</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                            {team.allowedTools && team.allowedTools.length > 0 ? (
+                                                team.allowedTools.map((tool: string) => (
+                                                    <div
+                                                        key={tool}
+                                                        className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 group hover:border-primary/50 transition-colors"
+                                                    >
+                                                        <div className="p-2 rounded bg-background text-primary group-hover:scale-110 transition-transform">
+                                                            {getToolIcon(tool)}
+                                                        </div>
+                                                        <span className="text-xs font-medium uppercase tracking-tight">{tool}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="col-span-full py-4 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                                                    No specialized tools registered for this department.
+                                                </div>
+                                            )}
                                         </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {completedTasks} of {teamTasks.length} tasks
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                    </CardContent>
+                                </Card>
+                            </div>
 
-                        {/* Quick Actions */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Quick Actions</CardTitle>
-                                <CardDescription>Common team operations</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex gap-3">
-                                    <Button onClick={() => setIsCreateMissionModalOpen(true)}>Create Mission</Button>
-                                    <Button variant="outline" onClick={() => setIsRecruitModalOpen(true)}>Recruit Agent</Button>
-                                    <Button variant="outline">Configure Tools</Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Placeholder for other tabs */}
-                        <Card>
-                            <CardContent className="pt-6">
-                                <p className="text-center text-muted-foreground">
-                                    More features coming soon: Recent Activity Timeline, Performance Charts
-                                </p>
-                            </CardContent>
-                        </Card>
+                            <div className="lg:col-span-1">
+                                <TeamChat teamId={team._id} teamName={team.name} />
+                            </div>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="agents" className="space-y-6">
@@ -286,12 +352,57 @@ export default function TeamDetailPage() {
                         )}
                     </TabsContent>
 
-                    <TabsContent value="missions">
-                        <Card>
-                            <CardContent className="pt-6">
-                                <p className="text-center text-muted-foreground">Missions tab - Coming soon</p>
-                            </CardContent>
-                        </Card>
+                    <TabsContent value="missions" className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                            <div>
+                                <h3 className="text-lg font-semibold tracking-tight">Mission Operations</h3>
+                                <p className="text-xs text-muted-foreground">Manage and monitor department-specific missions</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-border/50">
+                                    <Button
+                                        variant={viewMode === "board" ? "secondary" : "ghost"}
+                                        size="sm"
+                                        className="h-7 px-2 text-[10px]"
+                                        onClick={() => setViewMode("board")}
+                                    >
+                                        <LayoutGrid className="w-3 h-3 mr-1" />
+                                        Board
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === "table" ? "secondary" : "ghost"}
+                                        size="sm"
+                                        className="h-7 px-2 text-[10px]"
+                                        onClick={() => setViewMode("table")}
+                                    >
+                                        <List className="w-3 h-3 mr-1" />
+                                        Table
+                                    </Button>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    onClick={() => setIsCreateMissionModalOpen(true)}
+                                    className="bg-primary hover:bg-primary/90 text-primary-foreground h-8"
+                                >
+                                    <Zap className="w-3 h-3 mr-2" />
+                                    Launch Mission
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="h-[calc(100vh-420px)] min-h-[400px]">
+                            {viewMode === "board" ? (
+                                <TaskBoard
+                                    tasks={teamTasks}
+                                    agents={teamAgents}
+                                />
+                            ) : (
+                                <TaskTable
+                                    tasks={teamTasks}
+                                    agents={teamAgents}
+                                />
+                            )}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="analytics">
@@ -318,12 +429,19 @@ export default function TeamDetailPage() {
                 teamId={team._id}
             />
 
-            <CreateMissionModal
-                isOpen={isCreateMissionModalOpen}
-                onClose={() => setIsCreateMissionModalOpen(false)}
-                teamId={team._id}
-            />
-
+            {team && (
+                <CreateMissionModal
+                    isOpen={isCreateMissionModalOpen}
+                    onClose={() => {
+                        setIsCreateMissionModalOpen(false);
+                        // Switch to missions tab after creation if we were in overview
+                        if (selectedTab === "overview") {
+                            setSelectedTab("missions");
+                        }
+                    }}
+                    teamId={team._id}
+                />
+            )}
             {agentToEdit && (
                 <EditAgentModal
                     isOpen={isEditModalOpen}
