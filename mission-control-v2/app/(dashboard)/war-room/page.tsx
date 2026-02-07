@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { FleetRoster } from "@/components/dashboard/fleet-roster";
+import { TaskBoard } from "@/components/dashboard/task-board";
+import { TaskTable } from "@/components/dashboard/task-table";
 import { Button } from "@/components/ui/button";
 import {
     LayoutGrid,
@@ -97,17 +99,15 @@ export default function WarRoomPage() {
 
                 {/* Canvas */}
                 <div className="flex-1 overflow-hidden p-6">
-                    <div className="h-full flex items-center justify-center">
-                        <div className="text-center space-y-4">
-                            <div className="text-6xl">🚧</div>
-                            <h3 className="text-xl font-bold">Mission Board Coming Soon</h3>
-                            <p className="text-muted-foreground">
-                                {viewMode === "board"
-                                    ? "Kanban board with drag-and-drop"
-                                    : "Table view with sorting and filtering"}
-                            </p>
+                    {viewMode === "board" ? (
+                        <div className="h-full overflow-x-auto">
+                            <TaskBoard tasks={tasks} agents={agents} onTaskClick={(task) => console.log("Task clicked:", task)} />
                         </div>
-                    </div>
+                    ) : (
+                        <div className="h-full overflow-y-auto">
+                            <TaskTable tasks={tasks} agents={agents} onTaskClick={(task) => console.log("Task clicked:", task)} />
+                        </div>
+                    )}
                 </div>
             </div>
 
