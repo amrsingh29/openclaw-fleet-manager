@@ -12,7 +12,7 @@ export default function DashboardLayout({
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     return (
-        <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="flex h-screen overflow-hidden bg-background">
             {/* Command Palette */}
             <CommandPalette />
 
