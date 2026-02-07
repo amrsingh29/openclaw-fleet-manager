@@ -122,25 +122,29 @@ export function Sidebar({ isCollapsed, onToggle, onTeamSelect }: SidebarProps) {
                             Departments
                         </h3>
                     )}
-                    {teams.map((team: any) => (
-                        <Button
-                            key={team._id}
-                            variant="ghost"
-                            className={`w-full ${isCollapsed ? "justify-center px-2" : "justify-start"
-                                } relative group`}
-                            onClick={() => onTeamSelect?.(team._id)}
-                        >
-                            <div className="w-2 h-2 rounded-full bg-primary flex-none" />
-                            {!isCollapsed && (
-                                <span className="ml-3 truncate text-sm">{team.name}</span>
-                            )}
-                            {isCollapsed && (
-                                <div className="absolute left-full ml-2 px-2 py-1 rounded bg-popover border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50">
-                                    {team.name}
-                                </div>
-                            )}
-                        </Button>
-                    ))}
+                    {teams.map((team: any) => {
+                        const isActive = pathname === `/teams/${team.slug}`;
+
+                        return (
+                            <Link key={team._id} href={`/teams/${team.slug}`}>
+                                <Button
+                                    variant={isActive ? "secondary" : "ghost"}
+                                    className={`w-full ${isCollapsed ? "justify-center px-2" : "justify-start"
+                                        } relative group ${isActive ? "bg-primary/10 text-primary" : ""}`}
+                                >
+                                    <div className={`w-2 h-2 rounded-full ${isActive ? "bg-primary" : "bg-muted-foreground"} flex-none`} />
+                                    {!isCollapsed && (
+                                        <span className="ml-3 truncate text-sm">{team.name}</span>
+                                    )}
+                                    {isCollapsed && (
+                                        <div className="absolute left-full ml-2 px-2 py-1 rounded bg-popover border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50">
+                                            {team.name}
+                                        </div>
+                                    )}
+                                </Button>
+                            </Link>
+                        );
+                    })}
                 </div>
             </nav>
 
