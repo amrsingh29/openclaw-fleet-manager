@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -18,6 +19,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EditAgentModal } from "@/components/dashboard/edit-agent-modal";
+import { AssignTaskModal } from "@/components/dashboard/assign-task-modal";
 
 export default function AgentDetailPage() {
     const params = useParams();
@@ -25,6 +28,8 @@ export default function AgentDetailPage() {
 
     const agents = useQuery(api.agents.list);
     const agent = agents?.find((a) => a._id === agentId);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const teams = useQuery(api.teams.list);
     const tasks = useQuery(api.tasks.list) || [];
     const activities = useQuery(api.activities.list) || [];
@@ -159,11 +164,11 @@ export default function AgentDetailPage() {
 
                     {/* Action Buttons */}
                     <div className="space-y-2">
-                        <Button className="w-full" variant="default">
+                        <Button className="w-full" variant="default" onClick={() => setIsEditModalOpen(true)}>
                             <Edit className="w-4 h-4 mr-2" />
                             Edit Agent
                         </Button>
-                        <Button className="w-full" variant="outline">
+                        <Button className="w-full" variant="outline" onClick={() => setIsAssignModalOpen(true)}>
                             <Send className="w-4 h-4 mr-2" />
                             Assign Task
                         </Button>
@@ -304,6 +309,22 @@ export default function AgentDetailPage() {
                     </Tabs>
                 </div>
             </div>
+
+            {agent && (
+                <EditAgentModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    agent={agent}
+                />
+            )}
+
+            {agent && (
+                <AssignTaskModal
+                    isOpen={isAssignModalOpen}
+                    onClose={() => setIsAssignModalOpen(false)}
+                    agent={agent}
+                />
+            )}
         </div>
     );
 }

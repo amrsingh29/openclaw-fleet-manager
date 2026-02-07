@@ -13,12 +13,15 @@ import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/dashboard/agent-card";
 import { RecruitAgentModal } from "@/components/dashboard/recruit-agent-modal";
 import { CreateMissionModal } from "@/components/dashboard/create-mission-modal";
+import { EditAgentModal } from "@/components/dashboard/edit-agent-modal";
 
 export default function TeamDetailPage() {
     const params = useParams();
     const slug = params.slug as string;
     const [isRecruitModalOpen, setIsRecruitModalOpen] = useState(false);
     const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false);
+    const [agentToEdit, setAgentToEdit] = useState<any>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const teams = useQuery(api.teams.list);
     const team = teams?.find((t) => t.slug === slug);
@@ -261,7 +264,10 @@ export default function TeamDetailPage() {
                                     <AgentCard
                                         key={agent._id}
                                         agent={agent}
-                                        onEdit={() => console.log("Edit agent:", agent._id)}
+                                        onEdit={() => {
+                                            setAgentToEdit(agent);
+                                            setIsEditModalOpen(true);
+                                        }}
                                         onViewDetails={() => console.log("View agent:", agent._id)}
                                     />
                                 ))}
@@ -317,6 +323,17 @@ export default function TeamDetailPage() {
                 onClose={() => setIsCreateMissionModalOpen(false)}
                 teamId={team._id}
             />
+
+            {agentToEdit && (
+                <EditAgentModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => {
+                        setIsEditModalOpen(false);
+                        setAgentToEdit(null);
+                    }}
+                    agent={agentToEdit}
+                />
+            )}
         </div>
     );
 }

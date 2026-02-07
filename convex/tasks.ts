@@ -76,6 +76,31 @@ export const claim = mutation({
     }
 });
 
+export const assign = mutation({
+    args: { taskId: v.id("tasks"), agentId: v.id("agents") },
+    handler: async (ctx, args) => {
+        const task = await ctx.db.get(args.taskId);
+        if (!task) throw new Error("Task not found");
+
+        await ctx.db.patch(args.taskId, {
+            status: 'assigned',
+            assigneeIds: [args.agentId],
+            lastUpdated: Date.now()
+        });
+
+        // Log assignment
+        await ctx.db.insert("activities", {
+            type: "task_assigned",
+            agentId: args.agentId,
+            message: `Manager assigned task: ${task.title}`,
+            timestamp: Date.now(),
+            metadata: { taskId: args.taskId }
+        });
+
+        return true;
+    }
+});
+
 export const complete = mutation({
     args: { taskId: v.id("tasks"), agentId: v.id("agents"), output: v.string() },
     handler: async (ctx, args) => {

@@ -15,6 +15,11 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
+import { UserCheck } from "lucide-react";
+import { useState } from "react";
+import { AssignTaskModal } from "./assign-task-modal";
+import { Button } from "../ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 interface TaskBoardProps {
     tasks: any[];
@@ -24,6 +29,8 @@ interface TaskBoardProps {
 
 export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
     const updateTaskStatus = useMutation(api.tasks.updateStatus);
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [targetTask, setTargetTask] = useState<any>(null);
 
     // Add activation constraint so clicks work without conflicting with drag
     const sensors = useSensors(
@@ -86,10 +93,25 @@ export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
                             tasks={getTasks(col.id)}
                             agents={agents}
                             onTaskClick={onTaskClick}
+                            onAssignClick={(task) => {
+                                setTargetTask(task);
+                                setIsAssignModalOpen(true);
+                            }}
                         />
                     ))}
                 </div>
             </DndContext>
+
+            {targetTask && (
+                <AssignTaskModal
+                    isOpen={isAssignModalOpen}
+                    onClose={() => {
+                        setIsAssignModalOpen(false);
+                        setTargetTask(null);
+                    }}
+                    task={targetTask}
+                />
+            )}
         </div>
     );
 }
@@ -98,10 +120,12 @@ function TaskCard({
     task,
     agents,
     onClick,
+    onAssignClick,
 }: {
     task: any;
     agents: any[];
     onClick?: () => void;
+    onAssignClick?: (task: any) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition } =
         useSortable({ id: task._id });
@@ -154,6 +178,30 @@ function TaskCard({
                         -
                     </div>
                 )}
+
+                {task.status === "inbox" && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="w-6 h-6 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onAssignClick?.(task);
+                                    }}
+                                >
+                                    <UserCheck className="w-3 h-3" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="text-[10px]">Assign Agent</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
             </div>
 
             {/* Display Output if available */}
@@ -176,12 +224,14 @@ function DroppableColumn({
     tasks,
     agents,
     onTaskClick,
+    onAssignClick,
 }: {
     id: string;
     title: string;
     tasks: any[];
     agents: any[];
     onTaskClick?: (task: any) => void;
+    onAssignClick?: (task: any) => void;
 }) {
     const { setNodeRef } = useDroppable({ id });
 
@@ -207,6 +257,7 @@ function DroppableColumn({
                             task={task}
                             agents={agents}
                             onClick={() => onTaskClick?.(task)}
+                            onAssignClick={onAssignClick}
                         />
                     ))}
                     {tasks.length === 0 && (
