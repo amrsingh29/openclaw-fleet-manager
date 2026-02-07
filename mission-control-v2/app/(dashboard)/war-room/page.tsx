@@ -16,7 +16,9 @@ import {
     Users,
     PanelRightClose,
     PanelRightOpen,
+    Plus,
 } from "lucide-react";
+import { CreateMissionModal } from "@/components/dashboard/create-mission-modal";
 
 export default function WarRoomPage() {
     const agents = useQuery(api.agents.list) || [];
@@ -27,6 +29,7 @@ export default function WarRoomPage() {
         "all"
     );
     const [isIntelCollapsed, setIsIntelCollapsed] = useState(true);
+    const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false);
 
     // Filter Logic
     const filteredAgents = agents.filter((a: any) => {
@@ -77,6 +80,14 @@ export default function WarRoomPage() {
                 <div className="h-14 border-b border-border flex items-center justify-between px-6 flex-none bg-card/30 backdrop-blur-sm">
                     <div className="flex items-center gap-4">
                         <h1 className="font-bold text-lg tracking-tight">Mission Control</h1>
+                        <Button
+                            size="sm"
+                            className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/20"
+                            onClick={() => setIsCreateMissionModalOpen(true)}
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            New Mission
+                        </Button>
                         <div className="flex items-center p-1 rounded-lg border border-border bg-secondary/50">
                             <Button
                                 variant={viewMode === "board" ? "default" : "ghost"}
@@ -156,7 +167,13 @@ export default function WarRoomPage() {
                     <div className="flex-1 overflow-hidden p-4">
                         <LiveIntel minimal />
                     </div>
-                )}            </div>
+                )}
+            </div>
+
+            <CreateMissionModal
+                isOpen={isCreateMissionModalOpen}
+                onClose={() => setIsCreateMissionModalOpen(false)}
+            />
         </div>
     );
 }

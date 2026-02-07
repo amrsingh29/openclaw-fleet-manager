@@ -12,11 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/dashboard/agent-card";
 import { RecruitAgentModal } from "@/components/dashboard/recruit-agent-modal";
+import { CreateMissionModal } from "@/components/dashboard/create-mission-modal";
 
 export default function TeamDetailPage() {
     const params = useParams();
     const slug = params.slug as string;
     const [isRecruitModalOpen, setIsRecruitModalOpen] = useState(false);
+    const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false);
 
     const teams = useQuery(api.teams.list);
     const team = teams?.find((t) => t.slug === slug);
@@ -223,7 +225,7 @@ export default function TeamDetailPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="flex gap-3">
-                                    <Button>Create Mission</Button>
+                                    <Button onClick={() => setIsCreateMissionModalOpen(true)}>Create Mission</Button>
                                     <Button variant="outline" onClick={() => setIsRecruitModalOpen(true)}>Recruit Agent</Button>
                                     <Button variant="outline">Configure Tools</Button>
                                 </div>
@@ -307,6 +309,12 @@ export default function TeamDetailPage() {
             <RecruitAgentModal
                 isOpen={isRecruitModalOpen}
                 onClose={() => setIsRecruitModalOpen(false)}
+                teamId={team._id}
+            />
+
+            <CreateMissionModal
+                isOpen={isCreateMissionModalOpen}
+                onClose={() => setIsCreateMissionModalOpen(false)}
                 teamId={team._id}
             />
         </div>
