@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
-import { useRouter } from "next/navigation";
+import { CommandPalette } from "@/components/command-palette";
 
 export default function DashboardLayout({
     children,
@@ -10,25 +10,17 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const router = useRouter();
-
-    const handleTeamSelect = (teamId: string) => {
-        router.push(`/teams/${teamId}`);
-    };
 
     return (
-        <div className="flex h-screen overflow-hidden">
-            {/* Background Gradient Mesh */}
-            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] bg-purple-900/20 dark:bg-purple-900/20" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] bg-cyan-900/20 dark:bg-cyan-900/20" />
-            </div>
+        <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+            {/* Command Palette */}
+            <CommandPalette />
 
             {/* Sidebar */}
             <Sidebar
                 isCollapsed={isSidebarCollapsed}
                 onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                onTeamSelect={handleTeamSelect}
+                onTeamSelect={(teamId) => console.log("Selected team:", teamId)}
             />
 
             {/* Main Content */}

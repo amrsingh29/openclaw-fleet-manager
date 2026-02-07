@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { FleetRoster } from "@/components/dashboard/fleet-roster";
 import { TaskBoard } from "@/components/dashboard/task-board";
 import { TaskTable } from "@/components/dashboard/task-table";
+import { LiveIntel } from "@/components/dashboard/live-intel";
 import { Button } from "@/components/ui/button";
 import {
     LayoutGrid,
@@ -152,18 +153,10 @@ export default function WarRoomPage() {
                 </div>
 
                 {!isIntelCollapsed && (
-                    <div className="flex-1 overflow-hidden relative p-4">
-                        <div className="flex items-center justify-center h-full">
-                            <div className="text-center space-y-2">
-                                <Activity className="w-12 h-12 mx-auto text-muted-foreground" />
-                                <p className="text-sm text-muted-foreground">
-                                    Activity feed coming soon
-                                </p>
-                            </div>
-                        </div>
+                    <div className="flex-1 overflow-hidden p-4">
+                        <LiveIntel minimal />
                     </div>
-                )}
-            </div>
+                )}            </div>
         </div>
     );
 }
