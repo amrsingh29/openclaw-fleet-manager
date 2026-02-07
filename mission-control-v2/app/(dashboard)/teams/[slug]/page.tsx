@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -10,10 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/dashboard/agent-card";
+import { RecruitAgentModal } from "@/components/dashboard/recruit-agent-modal";
 
 export default function TeamDetailPage() {
     const params = useParams();
     const slug = params.slug as string;
+    const [isRecruitModalOpen, setIsRecruitModalOpen] = useState(false);
 
     const teams = useQuery(api.teams.list);
     const team = teams?.find((t) => t.slug === slug);
@@ -221,7 +224,7 @@ export default function TeamDetailPage() {
                             <CardContent>
                                 <div className="flex gap-3">
                                     <Button>Create Mission</Button>
-                                    <Button variant="outline">Recruit Agent</Button>
+                                    <Button variant="outline" onClick={() => setIsRecruitModalOpen(true)}>Recruit Agent</Button>
                                     <Button variant="outline">Configure Tools</Button>
                                 </div>
                             </CardContent>
@@ -246,7 +249,7 @@ export default function TeamDetailPage() {
                                     {teamAgents.length} agent{teamAgents.length !== 1 ? "s" : ""} in this team
                                 </p>
                             </div>
-                            <Button>Recruit Agent</Button>
+                            <Button onClick={() => setIsRecruitModalOpen(true)}>Recruit Agent</Button>
                         </div>
 
                         {/* Agent Grid */}
@@ -269,7 +272,7 @@ export default function TeamDetailPage() {
                                     <p className="text-sm text-muted-foreground mb-4">
                                         Get started by recruiting your first agent
                                     </p>
-                                    <Button>Recruit Agent</Button>
+                                    <Button onClick={() => setIsRecruitModalOpen(true)}>Recruit Agent</Button>
                                 </CardContent>
                             </Card>
                         )}
@@ -300,6 +303,12 @@ export default function TeamDetailPage() {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            <RecruitAgentModal
+                isOpen={isRecruitModalOpen}
+                onClose={() => setIsRecruitModalOpen(false)}
+                teamId={team._id}
+            />
         </div>
     );
 }
