@@ -78,4 +78,39 @@ Context: You are chatting in a 'War Room' with a human commander and other agent
             return `[Brain Malfunction]: ${error.message}`;
         }
     }
+    async work(title: string, description: string): Promise<string> {
+        if (!this.bio) return "Error: No SOUL found.";
+
+        const messages: BrainMessage[] = [
+            {
+                role: "system",
+                content: `
+You are ${this.agentName}.
+${this.bio}
+
+OBJECTIVE:
+You have been assigned a task.
+Execute it to the best of your ability and return the RESULT.
+If the task requires research you cannot do, simulate a realistic detailed output based on your knowledge.
+Output Format: Markdown.
+`
+            },
+            {
+                role: "user",
+                content: `TASK: ${title}\nDETAILS: ${description}`
+            }
+        ];
+
+        try {
+            const client = this.getClient();
+            const completion = await client.chat.completions.create({
+                messages: messages,
+                model: "gpt-4o",
+            });
+            return completion.choices[0].message.content || "Task completed (no output generated).";
+        } catch (error: any) {
+            console.error("Brain Work Error:", error.message);
+            return `[Brain Error]: ${error.message}`;
+        }
+    }
 }

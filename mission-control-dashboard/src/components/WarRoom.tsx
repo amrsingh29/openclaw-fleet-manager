@@ -21,6 +21,8 @@ export function WarRoom() {
 
     // Fetch agents to resolve names
     const agents = useQuery(api.agents.list) || [];
+    // Fetch teams for channels
+    const teams = useQuery(api.teams.list) || [];
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,6 +61,23 @@ export function WarRoom() {
                         <span className="font-medium">general</span>
                     </button>
 
+                    {/* Department Channels */}
+                    <div className="mt-4 mb-2 px-3 text-[10px] uppercase font-bold opacity-40">Departments</div>
+                    {teams.map((team: any) => (
+                        <button
+                            key={team._id}
+                            onClick={() => setSelectedChannel(team._id)}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
+                                ${selectedChannel === team._id
+                                    ? (theme === 'dark' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-blue-50 text-blue-600')
+                                    : 'opacity-60 hover:opacity-100 hover:bg-white/5'}
+                            `}
+                        >
+                            <Hash className="w-4 h-4" />
+                            <span className="truncate text-xs">{team.slug}</span>
+                        </button>
+                    ))}
+
                     {/* Active Mission Channels */}
                     {activeTasks.length > 0 && (
                         <>
@@ -91,7 +110,12 @@ export function WarRoom() {
                     <div className="flex items-center gap-2">
                         <Hash className="w-5 h-5 text-slate-400" />
                         <span className="font-bold text-sm">
-                            {selectedChannel === 'general' ? 'general' : tasks.find((t: any) => t._id === selectedChannel)?.title || 'Unknown Mission'}
+                            {
+                                selectedChannel === 'general' ? 'general' :
+                                    teams.find((t: any) => t._id === selectedChannel)?.name ||
+                                    tasks.find((t: any) => t._id === selectedChannel)?.title ||
+                                    'Unknown Channel'
+                            }
                         </span>
                     </div>
                     {/* Online Agents count could go here */}

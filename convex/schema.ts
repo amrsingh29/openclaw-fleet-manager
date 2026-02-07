@@ -24,6 +24,7 @@ export default defineSchema({
         title: v.string(),
         description: v.string(),
         status: v.union(v.literal("inbox"), v.literal("assigned"), v.literal("in_progress"), v.literal("review"), v.literal("done"), v.literal("blocked")),
+        teamId: v.optional(v.id("teams")),
         assigneeIds: v.optional(v.array(v.id("agents"))),
         priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
         createdTime: v.number(),

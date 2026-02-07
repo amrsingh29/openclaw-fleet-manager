@@ -14,6 +14,7 @@ export const create = mutation({
         description: v.string(),
         status: v.union(v.literal("inbox"), v.literal("assigned"), v.literal("in_progress"), v.literal("review"), v.literal("done"), v.literal("blocked")),
         priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+        teamId: v.optional(v.id("teams")) // Add this
     },
     handler: async (ctx, args) => {
         const taskId = await ctx.db.insert("tasks", {
@@ -21,6 +22,7 @@ export const create = mutation({
             description: args.description,
             status: args.status,
             priority: args.priority,
+            teamId: args.teamId, // Add this
             createdTime: Date.now(),
             lastUpdated: Date.now(),
         });

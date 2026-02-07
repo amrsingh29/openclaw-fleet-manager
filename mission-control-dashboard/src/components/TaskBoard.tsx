@@ -7,12 +7,12 @@ import { motion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 
 interface TaskBoardProps {
+    tasks: any[];
     onTaskClick?: (task: any) => void;
     agents: any[];
 }
 
-export function TaskBoard({ onTaskClick, agents }: TaskBoardProps) {
-    const tasks = useQuery(api.tasks.list) || [];
+export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
     const { theme } = useTheme();
 
     // Fix: Add activation constraint so clicks work without conflicting with drag

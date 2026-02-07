@@ -14,11 +14,11 @@ export function Layout({ children, onTeamSelect }: LayoutProps) {
     const teams = useQuery(api.teams.list) || [];
 
     return (
-        <div className={`flex h-screen overflow-hidden font-sans selection:bg-cyan-500/30 transition-colors duration-300
-            ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-slate-50 text-slate-900'}
-        `}>
-            {/* Background Gradient Mesh (Subtler in Light Mode) */}
-            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <>
+            {/* Background Gradient Mesh (Global) */}
+            <div className={`fixed inset-0 z-0 pointer-events-none overflow-hidden transition-colors duration-300
+                 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-slate-50'}
+            `}>
                 <div className={`absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-500
                     ${theme === 'dark' ? 'bg-purple-900/20' : 'bg-blue-200/40'}
                 `} />
@@ -31,7 +31,7 @@ export function Layout({ children, onTeamSelect }: LayoutProps) {
             <motion.aside
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                className={`w-20 md:w-64 z-10 border-r flex flex-col p-4 backdrop-blur-xl transition-colors duration-300
+                className={`w-20 md:w-64 z-10 border-r flex flex-col p-4 backdrop-blur-xl transition-colors duration-300 h-full relative
                     ${theme === 'dark'
                         ? 'border-white/10 bg-white/5'
                         : 'border-slate-200 bg-white/80'}
@@ -101,28 +101,6 @@ export function Layout({ children, onTeamSelect }: LayoutProps) {
                     v1.0.0 <span className="hidden md:inline">• Online</span>
                 </div>
             </motion.aside>
-
-            {/* Main Content */}
-            <main className="flex-1 z-10 overflow-auto relative">
-                <header className={`h-16 border-b flex items-center justify-between px-6 backdrop-blur-sm sticky top-0 transition-colors duration-300
-                    ${theme === 'dark'
-                        ? 'border-white/5 bg-[#0f172a]/80'
-                        : 'border-slate-200 bg-white/80'}
-                `}>
-                    <h2 className={`text-sm font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Overview
-                    </h2>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-xs font-medium text-green-500">System Nominal</span>
-                        </div>
-                    </div>
-                </header>
-                <div className="p-6">
-                    {children}
-                </div>
-            </main>
-        </div>
+        </>
     );
 }

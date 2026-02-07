@@ -12,12 +12,16 @@ interface AgentCardProps {
 export function AgentCard({ name, role, status, lastHeartbeat }: AgentCardProps) {
     const { theme } = useTheme();
 
+    const isOffline = Date.now() - lastHeartbeat > 60000;
+    const displayStatus = isOffline ? 'offline' : status;
+
     const getStatusColor = (s: string) => {
         switch (s) {
             case 'working': return 'bg-cyan-500';
             case 'active': return 'bg-green-500';
             case 'idle': return 'bg-slate-500';
-            default: return 'bg-red-500';
+            case 'offline': return 'bg-red-500';
+            default: return 'bg-slate-400';
         }
     };
 
@@ -32,8 +36,8 @@ export function AgentCard({ name, role, status, lastHeartbeat }: AgentCardProps)
         >
             {/* Status Pulse */}
             <div className="absolute top-4 right-4 flex items-center">
-                <div className={`w-2 h-2 rounded-full ${getStatusColor(status)} ${status === 'working' ? 'animate-ping' : ''}`} />
-                <div className={`absolute w-2 h-2 rounded-full ${getStatusColor(status)}`} />
+                <div className={`w-2 h-2 rounded-full ${getStatusColor(displayStatus)} ${displayStatus === 'working' ? 'animate-ping' : ''}`} />
+                <div className={`absolute w-2 h-2 rounded-full ${getStatusColor(displayStatus)}`} />
             </div>
 
             <div className="flex items-center gap-3 mb-4">
@@ -55,7 +59,7 @@ export function AgentCard({ name, role, status, lastHeartbeat }: AgentCardProps)
             <div className="flex items-center justify-between text-xs text-slate-500 font-mono mt-2">
                 <div className="flex items-center gap-1">
                     <Zap className="w-3 h-3" />
-                    <span className="uppercase">{status}</span>
+                    <span className="uppercase">{displayStatus}</span>
                 </div>
                 <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -64,7 +68,7 @@ export function AgentCard({ name, role, status, lastHeartbeat }: AgentCardProps)
             </div>
 
             {/* Progress Bar (Mock) */}
-            {status === 'working' && (
+            {displayStatus === 'working' && (
                 <div className="mt-3 h-1 bg-slate-500/20 rounded-full overflow-hidden">
                     <motion.div
                         initial={{ width: "0%" }}

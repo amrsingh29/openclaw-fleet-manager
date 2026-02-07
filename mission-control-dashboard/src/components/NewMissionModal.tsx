@@ -6,10 +6,11 @@ import { useTheme } from '../context/ThemeContext';
 interface NewMissionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (title: string, description: string) => void;
+    onSubmit: (title: string, description: string, teamId?: string) => void;
+    teamId?: string;
 }
 
-export function NewMissionModal({ isOpen, onClose, onSubmit }: NewMissionModalProps) {
+export function NewMissionModal({ isOpen, onClose, onSubmit, teamId }: NewMissionModalProps) {
     const { theme } = useTheme();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -17,7 +18,7 @@ export function NewMissionModal({ isOpen, onClose, onSubmit }: NewMissionModalPr
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (title.trim() && description.trim()) {
-            onSubmit(title, description);
+            onSubmit(title, description, teamId);
             setTitle('');
             setDescription('');
             onClose();
@@ -61,7 +62,7 @@ export function NewMissionModal({ isOpen, onClose, onSubmit }: NewMissionModalPr
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-cyan-500" />
-                                New Mission
+                                {teamId ? 'New Department Mission' : 'New Global Mission'}
                             </h2>
                             <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
                                 <X className="w-5 h-5 opacity-50" />

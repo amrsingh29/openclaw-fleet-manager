@@ -16,6 +16,7 @@ import { TeamView } from './components/TeamView';
 
 function AppContent() {
   const agents = useQuery(api.agents.list) || [];
+  const tasks = useQuery(api.tasks.list) || [];
   const createMission = useMutation(api.tasks.create);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -87,11 +88,13 @@ function AppContent() {
         {currentView === 'warroom' ? (
           <WarRoom />
         ) : currentView === 'team' && currentTeamId ? (
-          <TeamView teamId={currentTeamId} />
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            <TeamView teamId={currentTeamId} onTaskClick={setSelectedTask} />
+          </div>
         ) : (
           <>
             {/* Header */}
-            <header className={`h-14 border-b flex items-center justify-between px-6 flex-none z-10 backdrop-blur-md
+            <header className={`h-14 border-b flex items-center justify-between px-6 flex-none z-10 backdrop-blur-md sticky top-0
                     ${theme === 'dark' ? 'border-white/5 bg-[#0d1117]/80' : 'border-slate-200 bg-white/80'}
                  `}>
               {/* ... (Existing Header Content: Title + New Mission Button) ... */}
@@ -116,10 +119,10 @@ function AppContent() {
             </header>
 
             {/* Dashboard Grid */}
-            <main className="flex-1 overflow-hidden p-6 gap-6 grid grid-cols-12 min-h-0 relative z-0">
+            <main className="flex-1 overflow-y-auto p-6 gap-6 grid grid-cols-12 min-h-0 relative z-0">
 
               {/* Activity Feed (Left) */}
-              <div className="col-span-3 flex flex-col min-h-0">
+              <div className="col-span-3 flex flex-col min-h-0 h-[calc(100vh-8rem)] sticky top-0">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex-none">Live Intl</h3>
                 <div className="flex-1 min-h-0 rounded-2xl border overflow-hidden relative group">
                   <div className={`absolute inset-0 bg-gradient-to-b from-transparent to-black/50 pointer-events-none ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`} />
@@ -128,8 +131,8 @@ function AppContent() {
               </div>
 
               {/* Mission Queue (Center/Right) - Enhanced Width when Intel is closed? For now fixed */}
-              <div className="col-span-9 flex flex-col min-w-0">
-                <div className="mb-4 flex-none">
+              <div className="col-span-9 flex flex-col min-w-0 space-y-6">
+                <div className="flex-none">
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Active Agents</h3>
                   <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                     {agents.map((agent: any) => (
@@ -149,8 +152,8 @@ function AppContent() {
 
                 <div className="flex-1 min-w-0 flex flex-col">
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex-none">Mission Queue</h3>
-                  <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-                    <TaskBoard onTaskClick={setSelectedTask} agents={agents} />
+                  <div className="flex-1 min-h-[500px] overflow-x-auto overflow-y-hidden">
+                    <TaskBoard tasks={tasks} onTaskClick={setSelectedTask} agents={agents} />
                   </div>
                 </div>
               </div>
