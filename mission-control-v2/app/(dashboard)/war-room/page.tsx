@@ -17,8 +17,10 @@ import {
     PanelRightClose,
     PanelRightOpen,
     Plus,
+    MessageSquare,
 } from "lucide-react";
 import { CreateMissionModal } from "@/components/dashboard/create-mission-modal";
+import { WarRoomChat } from "@/components/dashboard/war-room-chat";
 
 export default function WarRoomPage() {
     const agents = useQuery(api.agents.list) || [];
@@ -29,6 +31,7 @@ export default function WarRoomPage() {
         "all"
     );
     const [isIntelCollapsed, setIsIntelCollapsed] = useState(true);
+    const [rightPanelMode, setRightPanelMode] = useState<"intel" | "comms">("intel");
     const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false);
 
     // Filter Logic
@@ -134,18 +137,32 @@ export default function WarRoomPage() {
                 >
                     {!isIntelCollapsed ? (
                         <>
-                            <div className="flex items-center gap-2">
-                                <Activity className="w-4 h-4 text-cyan-500" />
-                                <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                                    Live Intel
-                                </h2>
+                            <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
+                                <Button
+                                    variant={rightPanelMode === "intel" ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="h-7 px-2 text-[10px]"
+                                    onClick={() => setRightPanelMode("intel")}
+                                >
+                                    <Activity className="w-3 h-3 mr-1" />
+                                    Intel
+                                </Button>
+                                <Button
+                                    variant={rightPanelMode === "comms" ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="h-7 px-2 text-[10px]"
+                                    onClick={() => setRightPanelMode("comms")}
+                                >
+                                    <MessageSquare className="w-3 h-3 mr-1" />
+                                    Comms
+                                </Button>
                             </div>
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => setIsIntelCollapsed(true)}
-                                title="Hide Live Intel"
+                                title="Hide Panel"
                             >
                                 <PanelRightClose className="w-4 h-4" />
                             </Button>
@@ -156,7 +173,7 @@ export default function WarRoomPage() {
                             size="icon"
                             className="h-10 w-10"
                             onClick={() => setIsIntelCollapsed(false)}
-                            title="Show Live Intel"
+                            title="Show Panel"
                         >
                             <PanelRightOpen className="w-5 h-5 text-cyan-500" />
                         </Button>
@@ -165,7 +182,11 @@ export default function WarRoomPage() {
 
                 {!isIntelCollapsed && (
                     <div className="flex-1 overflow-hidden p-4">
-                        <LiveIntel minimal />
+                        {rightPanelMode === "intel" ? (
+                            <LiveIntel minimal />
+                        ) : (
+                            <WarRoomChat />
+                        )}
                     </div>
                 )}
             </div>
