@@ -1,11 +1,15 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getOrgId } from "./utils";
 
 // List all teams
 export const list = query({
     args: {},
     handler: async (ctx) => {
-        return await ctx.db.query("teams").collect();
+        const orgId = await getOrgId(ctx);
+        return await ctx.db.query("teams")
+            .filter(q => q.eq(q.field("orgId"), orgId))
+            .collect();
     },
 });
 
@@ -13,7 +17,10 @@ export const list = query({
 export const get = query({
     args: { id: v.id("teams") },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.id);
+        const orgId = await getOrgId(ctx);
+        const team = await ctx.db.get(args.id);
+        if (!team || team.orgId !== orgId) throw new Error("Unauthorized");
+        return team;
     },
 });
 
@@ -25,13 +32,21 @@ export const create = mutation({
         mission: v.string(),
     },
     handler: async (ctx, args) => {
-        const existing = await ctx.db.query("teams").withIndex("by_slug", q => q.eq("slug", args.slug)).first();
-        if (existing) throw new Error("Team slug already exists");
+        const orgId = await getOrgId(ctx);
+        const existing = await ctx.db.query("teams")
+            .filter(q => q.and(
+                q.eq(q.field("slug"), args.slug),
+                q.eq(q.field("orgId"), orgId)
+            ))
+            .first();
+
+        if (existing) throw new Error("Team slug already exists in your organization");
 
         return await ctx.db.insert("teams", {
             name: args.name,
             slug: args.slug,
             mission: args.mission,
+            orgId: orgId,
             allowedTools: [],
             createdTime: Date.now(),
         });

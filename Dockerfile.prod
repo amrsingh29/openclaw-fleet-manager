@@ -1,0 +1,25 @@
+# Build Stage
+FROM node:22-slim AS builder
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+
+# Final Stage
+FROM node:22-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+
+# Set environment variables (Defaults)
+ENV NODE_ENV=production
+
+# The Universal Runner command
+# We expect AGENT_NAME to be passed via Fly.io Machine Env
+CMD ["npx", "tsx", "scripts/universal-runner.ts", "--name=${AGENT_NAME}"]

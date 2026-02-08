@@ -48,11 +48,27 @@ async function main() {
         console.log(`✅ Identity Downloaded: ${agentConfig.name} (${agentConfig.role})`);
         console.log(`🧠 Soul Loaded: ${agentConfig.soul ? "Yes" : "Using Default"}`);
 
-        // 2. Initialize Brain
-        const soul = agentConfig.soul || `You are ${agentConfig.name}, a helpful AI assistant.`;
-        brain = new AgentBrain(agentConfig.name, soul);
+        // 2. Fetch API Keys from Secure Vault
+        let apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey && agentConfig.orgId) {
+            console.log(`🔐 Fetching API Key from Secure Vault for Org: ${agentConfig.orgId}...`);
+            try {
+                apiKey = await client.action(api.secrets.getSecret, {
+                    orgId: agentConfig.orgId,
+                    keyName: "openai_api_key"
+                });
+                if (apiKey) console.log("✅ Key retrieved from Vault.");
+                else console.warn("⚠️ No key found in Vault. Agent may malfunction.");
+            } catch (err: any) {
+                console.error("❌ Vault Access Failed:", err.message);
+            }
+        }
 
-        // 3. Start Loops
+        // 3. Initialize Brain
+        const soul = agentConfig.soul || `You are ${agentConfig.name}, a helpful AI assistant.`;
+        brain = new AgentBrain(agentConfig.name, soul, apiKey);
+
+        // 4. Start Loops
         startHeartbeat(agentConfig._id);
         runLoop(agentConfig._id);
 

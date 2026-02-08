@@ -1,12 +1,17 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getOrgId, maybeGetOrgId } from "./utils";
 
 export const list = query({
     args: { channelId: v.string() },
     handler: async (ctx, args) => {
+        const orgId = await getOrgId(ctx);
         return await ctx.db
             .query("messages")
-            .filter((q) => q.eq(q.field("channelId"), args.channelId))
+            .filter((q) => q.and(
+                q.eq(q.field("channelId"), args.channelId),
+                q.eq(q.field("orgId"), orgId)
+            ))
             .order("desc")
             .take(50);
     },
@@ -15,12 +20,15 @@ export const list = query({
 export const listRecent = query({
     args: { channelId: v.string(), after: v.number() },
     handler: async (ctx, args) => {
-        // Note: Simple filter. Indexing 'timestamp' would be better for perf in prod.
+        const orgId = await maybeGetOrgId(ctx);
         const messages = await ctx.db
             .query("messages")
-            .filter((q) => q.eq(q.field("channelId"), args.channelId))
+            .filter((q) => q.and(
+                q.eq(q.field("channelId"), args.channelId),
+                orgId ? q.eq(q.field("orgId"), orgId) : true
+            ))
             .order("desc")
-            .take(20); // Take last 20, then filter time in memory to catch edge cases or use q.gt if index existed
+            .take(20);
 
         return messages.filter(m => m.timestamp > args.after).reverse();
     },
@@ -34,15 +42,32 @@ export const send = mutation({
         taskId: v.optional(v.id("tasks")),
     },
     handler: async (ctx, args) => {
-        await ctx.db.insert("messages", {
-            channelId: args.channelId,
-            content: args.content,
-            fromAgentId: args.agentId,
-            taskId: args.taskId,
-            timestamp: Date.now(),
-        });
+        const orgId = await maybeGetOrgId(ctx);
 
-        // Log to activity feed if it's a significant message?
-        // Maybe not every chat message, that would spam the feed.
+        // Validation: If agent is message sender, it must exist
+        if (args.agentId) {
+            const agent = await ctx.db.get(args.agentId);
+            if (!agent || (orgId && agent.orgId !== orgId)) throw new Error("Unauthorized agent");
+            // Use agent's orgId if no user orgId
+            const finalOrgId = orgId || agent.orgId;
+
+            await ctx.db.insert("messages", {
+                channelId: args.channelId,
+                content: args.content,
+                fromAgentId: args.agentId,
+                taskId: args.taskId,
+                timestamp: Date.now(),
+                orgId: finalOrgId
+            });
+        } else {
+            // Sent by human manager
+            const userOrgId = await getOrgId(ctx);
+            await ctx.db.insert("messages", {
+                channelId: args.channelId,
+                content: args.content,
+                timestamp: Date.now(),
+                orgId: userOrgId
+            });
+        }
     },
 });

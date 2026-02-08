@@ -1,10 +1,15 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getOrgId, maybeGetOrgId } from "./utils";
 
 export const list = query({
     args: {},
     handler: async (ctx) => {
-        return await ctx.db.query("tasks").order("desc").collect();
+        const orgId = await getOrgId(ctx);
+        return await ctx.db.query("tasks")
+            .filter(q => q.eq(q.field("orgId"), orgId))
+            .order("desc")
+            .collect();
     },
 });
 
@@ -14,15 +19,17 @@ export const create = mutation({
         description: v.string(),
         status: v.union(v.literal("inbox"), v.literal("assigned"), v.literal("in_progress"), v.literal("review"), v.literal("done"), v.literal("blocked")),
         priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
-        teamId: v.optional(v.id("teams")) // Add this
+        teamId: v.optional(v.id("teams"))
     },
     handler: async (ctx, args) => {
+        const orgId = await getOrgId(ctx);
         const taskId = await ctx.db.insert("tasks", {
             title: args.title,
             description: args.description,
             status: args.status,
             priority: args.priority,
-            teamId: args.teamId, // Add this
+            teamId: args.teamId,
+            orgId: orgId,
             createdTime: Date.now(),
             lastUpdated: Date.now(),
         });
@@ -30,6 +37,7 @@ export const create = mutation({
         await ctx.db.insert("activities", {
             type: "task_created",
             message: `Task created: ${args.title}`,
+            orgId: orgId,
             timestamp: Date.now(),
             metadata: { taskId }
         });
@@ -38,23 +46,36 @@ export const create = mutation({
 });
 
 export const updateStatus = mutation({
-    args: { id: v.id("tasks"), status: v.string() },
+    args: {
+        id: v.id("tasks"),
+        status: v.union(v.literal("inbox"), v.literal("assigned"), v.literal("in_progress"), v.literal("review"), v.literal("done"), v.literal("blocked"))
+    },
     handler: async (ctx, args) => {
-        // @ts-ignore
+        const orgId = await maybeGetOrgId(ctx);
+        const task = await ctx.db.get(args.id);
+        if (!task || (orgId && task.orgId !== orgId)) throw new Error("Unauthorized");
+
         await ctx.db.patch(args.id, { status: args.status, lastUpdated: Date.now() });
     },
 });
 
-
-
 export const claim = mutation({
     args: { taskId: v.id("tasks"), agentId: v.id("agents") },
     handler: async (ctx, args) => {
+        // Claiming might be by agent (maybeGetOrgId)
+        const orgId = await maybeGetOrgId(ctx);
         const task = await ctx.db.get(args.taskId);
+        if (!task || (orgId && task.orgId !== orgId)) {
+            return false;
+        }
+
         // Atomic check: Is it still in inbox?
-        if (!task || task.status !== 'inbox') {
+        if (task.status !== 'inbox') {
             return false; // Already taken
         }
+
+        const agent = await ctx.db.get(args.agentId);
+        if (!agent || agent.orgId !== task.orgId) throw new Error("Unauthorized agent");
 
         // Claim it
         await ctx.db.patch(args.taskId, {
@@ -68,6 +89,7 @@ export const claim = mutation({
             type: "task_assigned",
             agentId: args.agentId,
             message: `Agent claimed task: ${task.title}`,
+            orgId: task.orgId,
             timestamp: Date.now(),
             metadata: { taskId: args.taskId }
         });
@@ -79,8 +101,12 @@ export const claim = mutation({
 export const assign = mutation({
     args: { taskId: v.id("tasks"), agentId: v.id("agents") },
     handler: async (ctx, args) => {
+        const orgId = await getOrgId(ctx);
         const task = await ctx.db.get(args.taskId);
-        if (!task) throw new Error("Task not found");
+        if (!task || task.orgId !== orgId) throw new Error("Task not found");
+
+        const agent = await ctx.db.get(args.agentId);
+        if (!agent || agent.orgId !== orgId) throw new Error("Agent not found");
 
         await ctx.db.patch(args.taskId, {
             status: 'assigned',
@@ -93,6 +119,7 @@ export const assign = mutation({
             type: "task_assigned",
             agentId: args.agentId,
             message: `Manager assigned task: ${task.title}`,
+            orgId: orgId,
             timestamp: Date.now(),
             metadata: { taskId: args.taskId }
         });
@@ -104,6 +131,10 @@ export const assign = mutation({
 export const complete = mutation({
     args: { taskId: v.id("tasks"), agentId: v.id("agents"), output: v.string() },
     handler: async (ctx, args) => {
+        const orgId = await maybeGetOrgId(ctx);
+        const task = await ctx.db.get(args.taskId);
+        if (!task || (orgId && task.orgId !== orgId)) throw new Error("Unauthorized");
+
         await ctx.db.patch(args.taskId, {
             status: 'done',
             output: args.output,
@@ -115,17 +146,20 @@ export const complete = mutation({
             type: "task_completed",
             agentId: args.agentId,
             message: `Agent completed task`,
+            orgId: task.orgId,
             timestamp: Date.now(),
             metadata: { taskId: args.taskId, output: args.output }
         });
     }
 });
-// ... existing code ...
 
 export const clearAll = mutation({
     args: {},
     handler: async (ctx) => {
-        const tasks = await ctx.db.query("tasks").collect();
+        const orgId = await getOrgId(ctx);
+        const tasks = await ctx.db.query("tasks")
+            .filter(q => q.eq(q.field("orgId"), orgId))
+            .collect();
         for (const task of tasks) {
             await ctx.db.delete(task._id);
         }

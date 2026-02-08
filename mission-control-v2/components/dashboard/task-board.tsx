@@ -25,9 +25,10 @@ interface TaskBoardProps {
     tasks: any[];
     onTaskClick?: (task: any) => void;
     agents: any[];
+    proposals?: any[];
 }
 
-export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
+export function TaskBoard({ tasks, onTaskClick, agents, proposals = [] }: TaskBoardProps) {
     const updateTaskStatus = useMutation(api.tasks.updateStatus);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [targetTask, setTargetTask] = useState<any>(null);
@@ -92,6 +93,7 @@ export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
                             title={col.title}
                             tasks={getTasks(col.id)}
                             agents={agents}
+                            proposals={proposals}
                             onTaskClick={onTaskClick}
                             onAssignClick={(task) => {
                                 setTargetTask(task);
@@ -119,11 +121,13 @@ export function TaskBoard({ tasks, onTaskClick, agents }: TaskBoardProps) {
 function TaskCard({
     task,
     agents,
+    proposals = [],
     onClick,
     onAssignClick,
 }: {
     task: any;
     agents: any[];
+    proposals?: any[];
     onClick?: () => void;
     onAssignClick?: (task: any) => void;
 }) {
@@ -155,9 +159,16 @@ function TaskCard({
                 <span className="text-[9px] font-mono text-primary truncate">
                     TASK-{task._id.slice(-4)}
                 </span>
-                {task.priority === "high" && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)] flex-none" />
-                )}
+                <div className="flex gap-1 items-center">
+                    {proposals.some(p => p.taskId === task._id) && (
+                        <div className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500 text-white animate-pulse">
+                            PENDING APPROVAL
+                        </div>
+                    )}
+                    {task.priority === "high" && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)] flex-none" />
+                    )}
+                </div>
             </div>
             <h5 className="text-xs font-medium mb-2 line-clamp-2 text-card-foreground">{task.title}</h5>
 
@@ -223,6 +234,7 @@ function DroppableColumn({
     title,
     tasks,
     agents,
+    proposals = [],
     onTaskClick,
     onAssignClick,
 }: {
@@ -230,6 +242,7 @@ function DroppableColumn({
     title: string;
     tasks: any[];
     agents: any[];
+    proposals?: any[];
     onTaskClick?: (task: any) => void;
     onAssignClick?: (task: any) => void;
 }) {
@@ -256,6 +269,7 @@ function DroppableColumn({
                             key={task._id}
                             task={task}
                             agents={agents}
+                            proposals={proposals.filter(p => p.taskId === task._id)}
                             onClick={() => onTaskClick?.(task)}
                             onAssignClick={onAssignClick}
                         />

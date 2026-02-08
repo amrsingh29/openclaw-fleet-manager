@@ -14,19 +14,26 @@ export class AgentBrain {
     private agentName: string;
     private bio: string;
     private openai: OpenAI | null = null;
+    private apiKey: string | null = null;
 
-    constructor(agentName: string, bio: string) {
+    constructor(agentName: string, bio: string, apiKey?: string) {
         this.agentName = agentName;
         this.bio = bio;
+        if (apiKey) this.apiKey = apiKey;
+    }
+
+    setApiKey(key: string) {
+        this.apiKey = key;
+        this.openai = null; // Reset client
     }
 
     private getClient(): OpenAI {
         if (!this.openai) {
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (!apiKey) {
-                throw new Error("Missing OPENAI_API_KEY in environment variables (.env or .env.local)");
+            const key = this.apiKey || process.env.OPENAI_API_KEY;
+            if (!key) {
+                throw new Error("Missing OpenAI API Key. Provide it in constructor or set via OPENAI_API_KEY env var.");
             }
-            this.openai = new OpenAI({ apiKey });
+            this.openai = new OpenAI({ apiKey: key });
         }
         return this.openai;
     }

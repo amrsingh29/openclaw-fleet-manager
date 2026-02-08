@@ -14,10 +14,13 @@ import {
     Moon,
     PanelLeftClose,
     PanelLeftOpen,
+    KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { OrganizationSwitcher, UserButton, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { Authenticated } from "convex/react";
 
 interface SidebarProps {
     isCollapsed: boolean;
@@ -36,9 +39,10 @@ export function Sidebar({ isCollapsed, onToggle, onTeamSelect }: SidebarProps) {
     }, []);
 
     const navItems = [
-        { href: "/", icon: LayoutGrid, label: "Command Center" }, // Updated icon and label
+        { href: "/", icon: LayoutGrid, label: "Command Center" },
         { href: "/war-room", icon: MessageSquare, label: "War Room" },
         { href: "/agents", icon: Users, label: "Agents" },
+        { href: "/vault", icon: KeyRound, label: "Cloud Vault" },
         { href: "/settings", icon: Settings, label: "Settings" },
     ];
 
@@ -50,7 +54,7 @@ export function Sidebar({ isCollapsed, onToggle, onTeamSelect }: SidebarProps) {
         >
             {/* Header & Toggle */}
             <div
-                className={`flex items-center mb-8 px-1 ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between"
+                className={`flex items-center mb-6 px-1 ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between"
                     }`}
             >
                 <div className="flex items-center gap-3">
@@ -80,6 +84,25 @@ export function Sidebar({ isCollapsed, onToggle, onTeamSelect }: SidebarProps) {
                         <PanelLeftClose className="w-4 h-4" />
                     )}
                 </Button>
+            </div>
+
+            {/* Clerk Account Section */}
+            <div className="mb-6 px-1 flex items-center justify-between gap-2 overflow-hidden">
+                <div className="flex items-center gap-2">
+                    <Authenticated>
+                        <UserButton afterSignOutUrl="/" />
+                        {!isCollapsed && (
+                            <OrganizationSwitcher
+                                appearance={{
+                                    elements: {
+                                        organizationSwitcherTrigger: "w-full text-foreground hover:bg-muted py-1.5 px-2 rounded-md transition-colors",
+                                        organizationPreviewMainIdentifier: "text-sm font-medium",
+                                    }
+                                }}
+                            />
+                        )}
+                    </Authenticated>
+                </div>
             </div>
 
             {/* Navigation */}

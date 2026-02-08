@@ -21,6 +21,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ScrollArea } from "../ui/scroll-area";
 import { Badge } from "../ui/badge";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 
 interface WarRoomChatProps {
     defaultChannel?: string;
@@ -38,7 +39,10 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
     const agents = useQuery(api.agents.list) || [];
     const tasks = useQuery(api.tasks.list) || [];
     const messages = useQuery(api.messages.list, { channelId: selectedChannel }) || [];
+    const proposals = useQuery(api.proposals.listPending) || [];
     const sendMessage = useMutation(api.messages.send);
+    const approveProposal = useMutation(api.proposals.approve);
+    const denyProposal = useMutation(api.proposals.deny);
 
     // Auto-scroll
     useEffect(() => {
@@ -203,13 +207,13 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
                         )}
 
                         <AnimatePresence initial={false}>
+                            {/* Merge messages and proposals for this channel */}
                             {[...messages].reverse().map((msg, idx, array) => {
                                 const isMe = !msg.fromAgentId;
                                 const agent = agents.find((a: any) => a._id === msg.fromAgentId);
                                 const color = msg.fromAgentId ? getAgentColor(msg.fromAgentId) : "var(--primary)";
 
-                                // Grouping logic: check if previous message was from same sender within 5 mins
-                                // After reversing, array[idx-1] is the chronologically previous message
+                                // Grouping logic
                                 const prevMsg = array[idx - 1];
                                 const isGrouped = prevMsg && prevMsg.fromAgentId === msg.fromAgentId &&
                                     (msg.timestamp - prevMsg.timestamp < 300000);
@@ -257,6 +261,55 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
                                 );
                             })}
                         </AnimatePresence>
+
+                        {/* Proposal Alerts for this channel */}
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                            {proposals.filter((p: Doc<"proposals">) => !selectedChannel.startsWith("task-") || `task-${p.taskId}` === selectedChannel).map((proposal: Doc<"proposals">) => (
+                                <motion.div
+                                    key={proposal._id}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="p-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 backdrop-blur-md flex flex-col gap-3 shadow-2xl shadow-orange-500/10"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-orange-500/20">
+                                            <Sparkles className="w-4 h-4 text-orange-500 animate-pulse" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs font-bold uppercase tracking-widest text-orange-500">Agent Proposal Required</h4>
+                                            <p className="text-[10px] text-white/60">Awaiting Commander approval for <span className="text-white font-mono">{proposal.action}</span></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-3 rounded-xl bg-black/40 border border-white/5">
+                                        <p className="text-xs text-white/80 italic mb-2">"{proposal.rationale}"</p>
+                                        <div className="flex items-center gap-4 text-[9px] font-mono text-white/40">
+                                            {proposal.confidence && <span>CONFIDENCE: {Math.round(proposal.confidence * 100)}%</span>}
+                                            {proposal.cost && <span>EST. COST: ${proposal.cost}</span>}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            className="flex-1 bg-orange-500 text-white hover:bg-orange-600 border-none h-8 text-[11px] font-bold"
+                                            onClick={() => approveProposal({ proposalId: proposal._id })}
+                                        >
+                                            Approve Execution
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="flex-1 text-white/60 hover:text-white hover:bg-white/5 h-8 text-[11px]"
+                                            onClick={() => denyProposal({ proposalId: proposal._id })}
+                                        >
+                                            Deny
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
                         {/* Auto-scroll anchor */}
                         <div ref={messagesEndRef} className="h-px w-full" />
                     </div>

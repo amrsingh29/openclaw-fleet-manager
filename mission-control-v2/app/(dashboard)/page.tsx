@@ -16,10 +16,12 @@ import {
 } from "lucide-react";
 import { CreateMissionModal } from "@/components/dashboard/create-mission-modal";
 import { MissionDetailModal } from "@/components/dashboard/mission-detail-modal";
+import { ProposalQueue } from "@/components/dashboard/proposal-queue";
 
 export default function DashboardPage() {
     const agents = useQuery(api.agents.list) || [];
     const tasks = useQuery(api.tasks.list) || [];
+    const proposals = useQuery(api.proposals.listPending) || [];
 
     const [viewMode, setViewMode] = useState<"board" | "table">("board");
     const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -111,6 +113,7 @@ export default function DashboardPage() {
                             <TaskBoard
                                 tasks={tasks}
                                 agents={agents}
+                                proposals={proposals}
                                 onTaskClick={(task) => {
                                     setSelectedTask(task);
                                     setIsDetailModalOpen(true);
@@ -145,6 +148,11 @@ export default function DashboardPage() {
                 task={selectedTask}
                 agents={agents}
             />
+
+            {/* RIGHT PANE: ACTION QUEUE */}
+            <div className="w-80 flex-none flex flex-col border-l border-border bg-card/50 backdrop-blur-sm relative z-20 overflow-y-auto p-4">
+                <ProposalQueue />
+            </div>
         </div>
     );
 }

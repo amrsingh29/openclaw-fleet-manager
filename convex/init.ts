@@ -44,6 +44,33 @@ export const setupEnterprise = mutation({
             }
         }
 
+        // 4. Seed Default Autonomy Policies
+        const defaultPolicies = [
+            { actionType: "read_logs", policy: "auto" as const },
+            { actionType: "web_research", policy: "auto" as const },
+            { actionType: "exec_command", policy: "manual" as const },
+            { actionType: "restart_server", policy: "propose_only" as const },
+            { actionType: "*", policy: "manual" as const }, // Default for everything else
+        ];
+
+        for (const p of defaultPolicies) {
+            const existing = await ctx.db
+                .query("policies")
+                .withIndex("by_org_team_action", (q) =>
+                    q.eq("orgId", "org_2saas_dev_mock_id").eq("teamId", undefined).eq("actionType", p.actionType)
+                )
+                .first();
+
+            if (!existing) {
+                await ctx.db.insert("policies", {
+                    orgId: "org_2saas_dev_mock_id",
+                    actionType: p.actionType,
+                    policy: p.policy,
+                });
+                console.log(`✅ Seeded Policy: ${p.actionType} -> ${p.policy}`);
+            }
+        }
+
         return "Enterprise Setup Complete";
     },
 });
