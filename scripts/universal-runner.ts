@@ -9,7 +9,9 @@ const execAsync = promisify(exec);
 dotenv.config();
 
 // ARGUMENT PARSING
-const agentName = process.argv.find(arg => arg.startsWith("--name="))?.split("=")[1];
+const rawAgentName = process.argv.find(arg => arg.startsWith("--name="))?.split("=")[1];
+// Strip both straight and curly quotes (common on Mac copy-paste)
+const agentName = rawAgentName?.replace(/["'“”]/g, "");
 
 if (!agentName) {
     console.error("❌ Usage: tsx scripts/universal-runner.ts --name=\"AgentName\"");

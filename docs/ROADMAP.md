@@ -109,6 +109,58 @@ A new **Admin Page** where you can:
 - Implement the "Team Switcher" navigation.
 
 ### Phase 3.4: Tool Scoping
-- Update `tools.ts` to check `agent.teamId` before allowing execution.
+- [ ] Update `tools.ts` to check `agent.teamId` before allowing execution.
 - (e.g., HR cannot run `restart_server`).
+
+---
+
+## 🚀 Future Vision: The Hybrid-Autonomy Loop
+
+The **Hybrid Model** works by treating **Autonomy as a Permission**, rather than a hardcoded behavior. This ensures the system remains a "Human-as-Commander" platform even as it gains fully autonomous capabilities.
+
+### 1. The Core Primitives
+- **The Proposal**: Every action (Human or Agent initiated) starts as a **Proposal**. 
+- **The Policy Logic**: A central `policies` table defines the "Auto-Approve" status for each action type.
+- **The Event Stream**: Agents watch for system events (e.g., `task_failed`) to proactively generate new Proposals.
+
+### 2. Implementation: The Policy Switchboard
+
+Agents act based on a tiered **Confidence & Policy Matrix**:
+
+#### A. The Auto-Approve Matrix
+We define which **Action Types** are safe to run and which require you.
+
+| Action Type | Policy (HR Team) | Policy (DevOps Team) | Why? |
+| :--- | :--- | :--- | :--- |
+| `read_logs` | **Auto** | **Auto** | Low risk, informative. |
+| `send_email` | **Manual** | **Manual** | High social/identity risk. |
+| `restart_server` | **Propose Only** | **Auto** | Domain expertise boundary. |
+| `web_research` | **Auto** | **Auto** | Harmless data gathering. |
+
+#### B. The Threshold Logic (The Money Gate)
+Instead of just "Yes/No," we use **Complexity/Cost Thresholds**:
+- *"If the estimated cost of this mission is < $0.50, run autonomously. If > $0.50, pause for Commander approval."*
+
+#### C. The Confidence Trigger
+The agent itself can decide to be hybrid based on its own uncertainty:
+- **High Confidence**: *"I am 98% sure I should fix this bug. Executing..."*
+- **Low Confidence**: *"I found three ways to fix this. Commander, please select one."*
+
+### 3. Integration with Existing Systems
+
+The hybrid model enhances our core UI without stripping away the "Human" touch:
+
+*   **War Room (The Narrative Layer)**: Remains the strategic hub. 
+    - In **Manual Mode**, agents ask: *"I've created a Proposal for this fix. Please click Approve."*
+    - In **Autonomous Mode**, agents report: *"Detected crash. Initiated auto-diagnostic mission. Stand by."*
+*   **Mission Board (The Execution Layer)**: Once a Proposal is approved (by policy or human), it converts to a **Mission**.
+    - The Kanban board includes a `pending_approval` column to visualize the "Fleet Brain" in action.
+
+### 4. The Hybrid Cycle (Logic Flow)
+1. **Initiation**: Agent identifies a need (via Heartbeat or Event).
+2. **Evaluation**: System checks **Policy Table** for `auto_approve` status and cost thresholds.
+3. **Execution/Pause**: 
+    - If Approved → Start **Mission**.
+    - If Manual → Create **Pending Proposal** and alert Commander in **War Room**.
+4. **Conclusion**: Agent reports final **Tactical Result** back to the Dashboard.
 
