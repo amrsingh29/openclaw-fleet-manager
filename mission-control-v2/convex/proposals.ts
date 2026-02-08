@@ -2,6 +2,7 @@ import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getOrgId } from "./utils";
 import { api, internal } from "./_generated/api";
+import { Doc, Id } from "./_generated/dataModel";
 
 /**
  * Creates a new proposal for an action that requires human approval.
@@ -25,42 +26,58 @@ export const createProposal = mutation({
         const teamId = agent?.teamId;
 
         // 2. Evaluate Policy (The Gatekeeper)
-        const status = await ctx.runQuery(internal.policies.evaluateAction, {
+        const status = (await ctx.runQuery(internal.policies.evaluateAction, {
             orgId,
             teamId,
             actionType: args.action,
             cost: args.cost,
             confidence: args.confidence,
-        });
+        })) as "pending" | "approved" | "denied" | "auto_approved";
 
         // 3. Insert Proposal
-        const proposalId = await ctx.db.insert("proposals", {
+        const proposalId = (await ctx.db.insert("proposals", {
             ...args,
             orgId,
+            teamId,
             status,
             timestamp: Date.now(),
-        });
+        })) as Id<"proposals">;
 
-        // 4. Log activity
+        // 4. If Auto-Approved, Convert to Mission immediately
+        let missionId: Id<"tasks"> | undefined;
+        if (status === "auto_approved") {
+            missionId = await ctx.db.insert("tasks", {
+                title: `${args.action.replace(/_/g, ' ').toUpperCase()}: Autonomous Protocol`,
+                description: `[AUTO-EXECUTED VIA POLICY]\nRationale: ${args.rationale}\nParameters: ${JSON.stringify(args.params)}`,
+                status: "assigned",
+                teamId: teamId,
+                assigneeIds: [args.agentId],
+                orgId,
+                createdTime: Date.now(),
+                lastUpdated: Date.now(),
+            });
+        }
+
+        // 5. Log activity
         const activityId = await ctx.db.insert("activities", {
             type: status === "auto_approved" ? "action_auto_executed" : "proposal_created",
             agentId: args.agentId,
             orgId,
             timestamp: Date.now(),
             message: status === "auto_approved"
-                ? `Agent automatically executed ${args.action} (Policy Approved)`
+                ? `Agent automatically executed ${args.action} (Policy Approved). Mission: ${missionId}`
                 : `Agent proposed action: ${args.action} (Awaiting Commander)`,
-            metadata: { proposalId, taskId: args.taskId },
+            metadata: { proposalId, taskId: missionId || args.taskId },
         });
 
         // Trigger event stream processing (Internal)
         await ctx.scheduler.runAfter(0, internal.events.processEvent, {
             type: status === "auto_approved" ? "action_auto_executed" : "proposal_created",
             orgId,
-            metadata: { proposalId, taskId: args.taskId, action: args.action }
+            metadata: { proposalId, taskId: missionId || args.taskId, action: args.action }
         });
 
-        return { proposalId, status };
+        return { proposalId, status, missionId };
     },
 });
 
@@ -93,14 +110,35 @@ export const approve = mutation({
 
         await ctx.db.patch(args.proposalId, { status: "approved" });
 
+        // 5. Convert Proposal to Mission (Task)
+        const missionId = await ctx.db.insert("tasks", {
+            title: `${proposal.action.replace(/_/g, ' ').toUpperCase()}: Active Protocol`,
+            description: `[AUTO-GENERATED FROM PROPOSAL]\nRationale: ${proposal.rationale}\nParameters: ${JSON.stringify(proposal.params)}`,
+            status: "assigned",
+            teamId: proposal.teamId,
+            assigneeIds: [proposal.agentId],
+            orgId,
+            createdTime: Date.now(),
+            lastUpdated: Date.now(),
+        });
+
         await ctx.db.insert("activities", {
             type: "proposal_approved",
             agentId: proposal.agentId,
             orgId,
             timestamp: Date.now(),
-            message: `Commander approved action: ${proposal.action}`,
-            metadata: { proposalId: args.proposalId, taskId: proposal.taskId },
+            message: `Commander approved action: ${proposal.action}. Initiated Mission: ${missionId}`,
+            metadata: { proposalId: args.proposalId, taskId: missionId },
         });
+
+        // Trigger Event Stream for the new Mission
+        await ctx.scheduler.runAfter(0, internal.events.processEvent, {
+            type: "task_status_changed",
+            orgId,
+            metadata: { taskId: missionId, status: "assigned" }
+        });
+
+        return missionId;
     },
 });
 

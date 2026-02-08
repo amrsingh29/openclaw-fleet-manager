@@ -80,6 +80,7 @@ export default defineSchema({
     proposals: defineTable({
         taskId: v.id("tasks"),
         agentId: v.id("agents"),
+        teamId: v.optional(v.id("teams")),
         action: v.string(), // e.g. "execute_command", "read_file"
         params: v.any(),
         rationale: v.string(), // Why the agent wants to do this

@@ -43,6 +43,7 @@ export function TaskBoard({ tasks, onTaskClick, agents, proposals = [] }: TaskBo
     );
 
     const columns = [
+        { id: "pending_approval", title: "Fleet Brain (Proposals)" },
         { id: "inbox", title: "Inbox" },
         { id: "assigned", title: "Assigned" },
         { id: "in_progress", title: "In Progress" },
@@ -50,9 +51,28 @@ export function TaskBoard({ tasks, onTaskClick, agents, proposals = [] }: TaskBo
         { id: "done", title: "Done" },
     ];
 
-    // Helper to get tasks for a column
-    const getTasks = (status: string) =>
-        tasks.filter((t: any) => t.status === status);
+    // Helper to get items for a column
+    const getTasks = (status: string) => {
+        if (status === "pending_approval") {
+            // Map proposals to a task-like interface for the card
+            return proposals
+                .filter(p => p.status === 'pending')
+                .map(p => ({
+                    _id: p._id,
+                    title: `PROPOSAL: ${p.action.replace(/_/g, ' ').toUpperCase()}`,
+                    description: p.rationale,
+                    status: "pending_approval",
+                    priority: "medium", // Default for visualization
+                    assigneeIds: [p.agentId],
+                    orgId: p.orgId,
+                    createdTime: p.timestamp,
+                    lastUpdated: p.timestamp,
+                    isProposal: true,
+                    proposalId: p._id
+                }));
+        }
+        return tasks.filter((t: any) => t.status === status);
+    };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
@@ -73,8 +93,12 @@ export function TaskBoard({ tasks, onTaskClick, agents, proposals = [] }: TaskBo
 
         // Find the task and update its status
         const task = tasks.find((t) => t._id === taskId);
-        if (task && task.status !== newStatus) {
-            updateTaskStatus({ id: taskId as Id<"tasks">, status: newStatus });
+        // Proposals cannot be dragged manually (they are promoted via approval)
+        if (task && task.status !== newStatus && task.status !== "pending_approval") {
+            updateTaskStatus({
+                id: taskId as Id<"tasks">,
+                status: newStatus as "inbox" | "assigned" | "in_progress" | "review" | "done" | "blocked"
+            });
         }
     };
 

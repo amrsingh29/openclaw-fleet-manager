@@ -24,7 +24,7 @@ export const processEvent = internalMutation({
                 const task = await ctx.db.get(taskId as Id<"tasks">);
                 if (task && task.assigneeIds && task.assigneeIds.length > 0) {
                     // Propose an investigation when blocked
-                    await ctx.runMutation(api.proposals.createProposal, {
+                    const { proposalId, status } = await ctx.runMutation(api.proposals.createProposal, {
                         taskId,
                         agentId: task.assigneeIds[0],
                         action: "analyze_blocker",
@@ -33,6 +33,28 @@ export const processEvent = internalMutation({
                         cost: 0.02,
                         confidence: 0.9
                     });
+
+                    // Roadmap Section 3: Narrative Reporting
+                    const agent = await ctx.db.get(task.assigneeIds[0]);
+                    const channelId = task.teamId ? `team-${task.teamId}` : "general";
+
+                    if (status === "auto_approved") {
+                        await ctx.db.insert("messages", {
+                            channelId,
+                            orgId: task.orgId,
+                            fromAgentId: task.assigneeIds[0],
+                            content: `⚠️ Detected block in "${task.title}". Initiated auto-diagnostic mission. Stand by.`,
+                            timestamp: Date.now()
+                        });
+                    } else {
+                        await ctx.db.insert("messages", {
+                            channelId,
+                            orgId: task.orgId,
+                            fromAgentId: task.assigneeIds[0],
+                            content: `🚧 Task "${task.title}" is blocked. I've created a Proposal to analyze the root cause. Please click Approve in the Action Queue.`,
+                            timestamp: Date.now()
+                        });
+                    }
                 }
             }
         }
