@@ -9,7 +9,9 @@ const execAsync = promisify(exec);
 dotenv.config();
 
 // ARGUMENT PARSING
-const agentName = process.argv.find(arg => arg.startsWith("--name="))?.split("=")[1];
+const rawAgentName = process.argv.find(arg => arg.startsWith("--name="))?.split("=")[1];
+// Strip both straight and curly quotes (common on Mac copy-paste)
+const agentName = rawAgentName?.replace(/["'“”]/g, "");
 
 if (!agentName) {
     console.error("❌ Usage: tsx scripts/universal-runner.ts --name=\"AgentName\"");
@@ -177,12 +179,21 @@ const lastChatTimes: Record<string, number> = {
 async function processChat(agentId: any) {
     if (!brain || !agentConfig) return;
 
-    // Channels to listen to: General + My Team
+    // Channels to listen to: General + My Team (+ My Current Task)
     const channels = ['general'];
     if (agentConfig.teamId) {
-        channels.push(agentConfig.teamId);
-        if (!lastChatTimes[agentConfig.teamId]) {
-            lastChatTimes[agentConfig.teamId] = Date.now();
+        const teamChannel = `team-${agentConfig.teamId}`;
+        channels.push(teamChannel);
+        if (!lastChatTimes[teamChannel]) {
+            lastChatTimes[teamChannel] = Date.now();
+        }
+    }
+
+    if (agentConfig.currentTaskId) {
+        const taskChannel = `task-${agentConfig.currentTaskId}`;
+        channels.push(taskChannel);
+        if (!lastChatTimes[taskChannel]) {
+            lastChatTimes[taskChannel] = Date.now();
         }
     }
 
