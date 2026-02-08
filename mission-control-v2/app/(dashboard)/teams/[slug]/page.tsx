@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { motion } from "framer-motion";
-import { Users, CheckCircle, Clock, TrendingUp, Settings } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Users, CheckCircle, Clock, TrendingUp, Settings, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { CreateMissionModal } from "@/components/dashboard/create-mission-modal"
 import { TeamChat } from "@/components/dashboard/team-chat";
 import { TaskBoard } from "@/components/dashboard/task-board";
 import { TaskTable } from "@/components/dashboard/task-table";
+import { MissionDetailModal } from "@/components/dashboard/mission-detail-modal";
 import {
     Cpu,
     Globe,
@@ -43,6 +44,10 @@ export default function TeamDetailPage() {
     const [viewMode, setViewMode] = useState<"board" | "table">("board");
     const [agentToEdit, setAgentToEdit] = useState<any>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const [isChatVisible, setIsChatVisible] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const teams = useQuery(api.teams.list);
     const team = teams?.find((t) => t.slug === slug);
@@ -89,100 +94,57 @@ export default function TeamDetailPage() {
 
     return (
         <div className="flex-1 overflow-y-auto">
-            {/* Hero Section */}
-            <div className="border-b bg-card">
-                <div className="max-w-7xl mx-auto px-8 py-6">
-                    <div className="flex items-start justify-between mb-6">
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <h1 className="text-3xl font-bold">{team.name}</h1>
-                                <Badge variant="outline" className="font-mono text-xs">
-                                    {team.slug}
-                                </Badge>
+            {/* Compact Header & Metric Bar */}
+            <div className="border-b bg-card/30 backdrop-blur-md sticky top-0 z-20">
+                <div className="max-w-7xl mx-auto px-8 py-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
+                                <Users className="w-6 h-6 text-primary" />
                             </div>
-                            {team.mission && (
-                                <p className="text-muted-foreground max-w-2xl">{team.mission}</p>
-                            )}
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-xl font-bold tracking-tight">{team.name}</h1>
+                                    <Badge variant="outline" className="h-4 text-[9px] px-1 border-primary/30 text-primary">LIVE</Badge>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest leading-none mt-1">
+                                    Sector: {team.slug} • Operations Active
+                                </p>
+                            </div>
                         </div>
-                        <Button variant="outline" size="sm">
-                            <Settings className="w-4 h-4 mr-2" />
-                            Settings
-                        </Button>
-                    </div>
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-4 gap-4">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                        >
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Agents</p>
-                                            <p className="text-3xl font-bold">{teamAgents.length}</p>
-                                        </div>
-                                        <Users className="w-8 h-8 text-muted-foreground" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
+                        {/* Metric Bar */}
+                        <div className="flex items-center gap-6 px-6 py-2 rounded-xl bg-background/40 border border-white/5 shadow-inner">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter">Personnel</span>
+                                <span className="text-sm font-bold text-foreground">{teamAgents.length}</span>
+                            </div>
+                            <div className="w-px h-6 bg-border/50" />
+                            <div className="flex flex-col">
+                                <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter">Missions</span>
+                                <span className="text-sm font-bold text-foreground">{teamTasks.length}</span>
+                            </div>
+                            <div className="w-px h-6 bg-border/50" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsChatVisible(!isChatVisible)}
+                                className={`flex flex-col h-auto py-1 px-3 hover:bg-primary/10 transition-colors ${isChatVisible ? 'text-primary' : 'text-muted-foreground'}`}
+                            >
+                                <span className="text-[9px] uppercase font-bold tracking-tighter mb-0.5">Tactical Comms</span>
+                                <div className="flex items-center gap-2">
+                                    <MessageSquare size={14} className={isChatVisible ? 'animate-pulse' : ''} />
+                                    <span className="text-sm font-bold">{isChatVisible ? 'ONLINE' : 'HIDDEN'}</span>
+                                </div>
+                            </Button>
+                        </div>
 
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                        >
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Tasks</p>
-                                            <p className="text-3xl font-bold">{teamTasks.length}</p>
-                                        </div>
-                                        <CheckCircle className="w-8 h-8 text-muted-foreground" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Active</p>
-                                            <p className="text-3xl font-bold">{activeRate}%</p>
-                                        </div>
-                                        <TrendingUp className="w-8 h-8 text-muted-foreground" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.4 }}
-                        >
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Avg Time</p>
-                                            <p className="text-3xl font-bold">{avgCompletionTime}</p>
-                                        </div>
-                                        <Clock className="w-8 h-8 text-muted-foreground" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase tracking-widest border-white/10 hover:bg-white/5">
+                                <Settings className="w-3.5 h-3.5 mr-2" />
+                                Protocol
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -190,6 +152,7 @@ export default function TeamDetailPage() {
             {/* Tabs Section */}
             <div className="max-w-7xl mx-auto px-8 py-6">
                 <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+                    {/* ... (TabsList content unchanged) ... */}
                     <div className="flex items-center justify-between">
                         <TabsList className="bg-muted/50 p-1">
                             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -198,9 +161,13 @@ export default function TeamDetailPage() {
                             <TabsTrigger value="analytics">Analytics</TabsTrigger>
                             <TabsTrigger value="settings">Settings</TabsTrigger>
                         </TabsList>
-                    </div>     <TabsContent value="overview" className="space-y-6">
+                    </div>
+
+                    <TabsContent value="overview" className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 space-y-6">
+                            <motion.div
+                                className={`space-y-6 transition-all duration-500 ease-in-out ${isChatVisible ? 'lg:col-span-2' : 'lg:col-span-3'}`}
+                            >
                                 {/* Team Health */}
                                 <Card>
                                     <CardHeader>
@@ -303,11 +270,23 @@ export default function TeamDetailPage() {
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </div>
+                            </motion.div>
 
-                            <div className="lg:col-span-1">
-                                <TeamChat teamId={team._id} teamName={team.name} />
-                            </div>
+                            <AnimatePresence>
+                                {isChatVisible && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20, width: 0 }}
+                                        animate={{ opacity: 1, x: 0, width: 'auto' }}
+                                        exit={{ opacity: 0, x: 20, width: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="lg:col-span-1 overflow-hidden"
+                                    >
+                                        <div className="sticky top-[80px]">
+                                            <TeamChat teamId={team._id} teamName={team.name} />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </TabsContent>
 
@@ -395,11 +374,19 @@ export default function TeamDetailPage() {
                                 <TaskBoard
                                     tasks={teamTasks}
                                     agents={teamAgents}
+                                    onTaskClick={(task) => {
+                                        setSelectedTask(task);
+                                        setIsDetailModalOpen(true);
+                                    }}
                                 />
                             ) : (
                                 <TaskTable
                                     tasks={teamTasks}
                                     agents={teamAgents}
+                                    onTaskClick={(task) => {
+                                        setSelectedTask(task);
+                                        setIsDetailModalOpen(true);
+                                    }}
                                 />
                             )}
                         </div>
@@ -452,6 +439,15 @@ export default function TeamDetailPage() {
                     agent={agentToEdit}
                 />
             )}
+            <MissionDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => {
+                    setIsDetailModalOpen(false);
+                    setSelectedTask(null);
+                }}
+                task={selectedTask}
+                agents={allAgents}
+            />
         </div>
     );
 }

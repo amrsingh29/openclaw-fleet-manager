@@ -17,21 +17,16 @@ interface TeamChatProps {
 
 export function TeamChat({ teamId, teamName }: TeamChatProps) {
     const [newMessage, setNewMessage] = useState("");
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const channelId = `team-${teamId}`;
     const messages = useQuery(api.messages.list, { channelId }) || [];
     const sendMessage = useMutation(api.messages.send);
     const agents = useQuery(api.agents.list) || [];
 
-    // Scroll to bottom when messages change
+    // Auto-scroll
     useEffect(() => {
-        if (scrollRef.current) {
-            const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollContainer) {
-                scrollContainer.scrollTop = scrollContainer.scrollHeight;
-            }
-        }
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const handleSend = async (e: React.FormEvent) => {
@@ -49,88 +44,131 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
         }
     };
 
+    // Agent HSL coloring logic (shared with War Room)
+    const getAgentColor = (id: string) => {
+        let hash = 0;
+        for (let i = 0; i < id.length; i++) {
+            hash = id.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return `hsl(${hash % 360}, 70%, 60%)`;
+    };
+
     return (
-        <div className="flex flex-col h-[500px] rounded-xl border border-border bg-card/50 overflow-hidden shadow-sm">
-            {/* Header */}
-            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-semibold">{teamName} Communications</h3>
-                </div>
-                <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider">Secure Channel</span>
+        <div className="flex flex-col h-[calc(100vh-160px)] min-h-[500px] bg-transparent overflow-hidden">
+            {/* Minimal Header */}
+            <div className="flex-none px-1 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
+                        <MessageSquare className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold tracking-tight">{teamName} Comms</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                            </span>
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest">Live Uplink</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Message Area */}
-            <ScrollArea ref={scrollRef} className="flex-1 p-4">
-                <div className="space-y-4">
+            {/* Message Feed */}
+            <ScrollArea className="flex-1 min-h-0 pr-4">
+                <div className="space-y-6">
                     <AnimatePresence initial={false}>
                         {messages.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full py-10 text-center opacity-50">
-                                <MessageSquare className="w-8 h-8 mb-2" />
-                                <p className="text-xs">No personnel communications found in this sector.</p>
+                            <div className="flex flex-col items-center justify-center h-[300px] text-center opacity-40">
+                                <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                                    <MessageSquare className="w-6 h-6" />
+                                </div>
+                                <p className="text-[10px] font-mono tracking-widest uppercase">Protocol Awaiting Input</p>
                             </div>
                         ) : (
-                            messages.map((msg, index) => {
+                            [...messages].reverse().map((msg, idx, array) => {
                                 const isAgent = !!msg.fromAgentId;
                                 const agent = isAgent ? agents.find(a => a._id === msg.fromAgentId) : null;
+                                const color = msg.fromAgentId ? getAgentColor(msg.fromAgentId) : "var(--primary)";
+
+                                // Grouping
+                                const prevMsg = array[idx - 1];
+                                const isGrouped = prevMsg && prevMsg.fromAgentId === msg.fromAgentId &&
+                                    (msg.timestamp - prevMsg.timestamp < 300000);
 
                                 return (
                                     <motion.div
                                         key={msg._id}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className={`flex gap-3 ${!isAgent ? 'flex-row-reverse' : ''}`}
+                                        className={`flex gap-4 ${!isAgent ? 'flex-row-reverse' : 'flex-row'}`}
                                     >
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${isAgent
-                                                ? 'bg-primary/10 border-primary/20 text-primary'
-                                                : 'bg-secondary border-border text-secondary-foreground'
-                                            }`}>
-                                            {isAgent ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                                        </div>
-                                        <div className={`flex flex-col max-w-[80%] ${!isAgent ? 'items-end' : ''}`}>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-bold tracking-tight uppercase">
-                                                    {agent ? agent.name : (isAgent ? "Unknown Agent" : "Commander")}
-                                                </span>
-                                                <span className="text-[9px] opacity-40">
-                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                        {!isGrouped && (
+                                            <div className="flex-none pt-1">
+                                                <div
+                                                    className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold border border-white/10 shadow-lg"
+                                                    style={{ backgroundColor: !isAgent ? "var(--primary)" : color, color: "#fff" }}
+                                                >
+                                                    {!isAgent ? "C" : agent?.name?.[0] || "A"}
+                                                </div>
                                             </div>
-                                            <div className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${isAgent
-                                                    ? 'bg-muted border border-border rounded-tl-none'
-                                                    : 'bg-primary text-primary-foreground rounded-tr-none'
-                                                }`}>
+                                        )}
+                                        {isGrouped && <div className="w-8 flex-none" />}
+
+                                        <div className={`flex flex-col max-w-[85%] ${!isAgent ? 'items-end' : 'items-start'}`}>
+                                            {!isGrouped && (
+                                                <div className="flex items-center gap-2 mb-1 px-1">
+                                                    <span className="text-[10px] font-bold text-foreground/90 uppercase tracking-tighter text-muted-foreground">
+                                                        {agent ? agent.name : (!isAgent ? "Commander" : "Agent")}
+                                                    </span>
+                                                    <span className="text-[9px] opacity-30 font-mono">
+                                                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div className={`
+                                                px-3 py-2 rounded-2xl text-[12px] leading-relaxed shadow-lg border backdrop-blur-sm
+                                                ${!isAgent
+                                                    ? 'bg-primary text-primary-foreground border-primary/20 rounded-tr-none'
+                                                    : 'bg-card/40 border-white/5 rounded-tl-none glass-morphism'}
+                                            `}>
                                                 {msg.content}
                                             </div>
                                         </div>
                                     </motion.div>
                                 );
-                            }).reverse() // Reversed because list query returns desc
+                            })
                         )}
                     </AnimatePresence>
+                    {/* Auto-scroll anchor */}
+                    <div ref={messagesEndRef} className="h-px w-full" />
                 </div>
             </ScrollArea>
 
-            {/* Input Area */}
-            <form onSubmit={handleSend} className="p-4 border-t border-border bg-muted/20">
-                <div className="relative">
-                    <Input
-                        placeholder="Broadcast message to department..."
-                        className="pr-12 bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                    />
-                    <Button
-                        size="icon"
-                        type="submit"
-                        disabled={!newMessage.trim()}
-                        className="absolute right-1 top-1 w-8 h-8 rounded-lg"
-                    >
-                        <Send className="w-4 h-4" />
-                    </Button>
+            {/* Premium Integrated Input */}
+            <form onSubmit={handleSend} className="flex-none pt-6">
+                <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/0 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500" />
+                    <div className="relative">
+                        <Input
+                            placeholder="Signal to sector..."
+                            className="h-11 bg-background/40 border-white/5 group-focus-within:border-primary/50 transition-all rounded-xl pr-12 text-sm placeholder:text-muted-foreground/30 focus-visible:ring-0"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                        />
+                        <Button
+                            size="icon"
+                            type="submit"
+                            disabled={!newMessage.trim()}
+                            className="absolute right-1.5 top-1.5 w-8 h-8 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 transition-all shadow-lg"
+                        >
+                            <Send className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 mt-3 px-1 text-[9px] text-muted-foreground/40 font-mono">
+                    <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-primary/40" /> ENCRYPTION: AES-256</span>
+                    <span className="ml-auto">SECTOR_LOCKED</span>
                 </div>
             </form>
         </div>

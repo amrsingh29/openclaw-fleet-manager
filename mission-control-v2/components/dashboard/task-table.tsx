@@ -59,7 +59,7 @@ export function TaskTable({ tasks, onTaskClick, agents }: TaskTableProps) {
                                     </div>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="font-medium max-w-xs truncate" title={task.title}>
+                                    <div className="font-medium max-w-xs truncate text-foreground" title={task.title}>
                                         {task.title}
                                     </div>
                                 </td>

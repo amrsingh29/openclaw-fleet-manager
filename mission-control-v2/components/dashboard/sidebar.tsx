@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import {
-    Activity,
+    LayoutGrid,
     MessageSquare,
     Users,
     Settings,
@@ -36,7 +36,7 @@ export function Sidebar({ isCollapsed, onToggle, onTeamSelect }: SidebarProps) {
     }, []);
 
     const navItems = [
-        { href: "/", icon: Activity, label: "Dashboard" },
+        { href: "/", icon: LayoutGrid, label: "Command Center" }, // Updated icon and label
         { href: "/war-room", icon: MessageSquare, label: "War Room" },
         { href: "/agents", icon: Users, label: "Agents" },
         { href: "/settings", icon: Settings, label: "Settings" },

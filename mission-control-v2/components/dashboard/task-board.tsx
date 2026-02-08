@@ -159,7 +159,7 @@ function TaskCard({
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)] flex-none" />
                 )}
             </div>
-            <h5 className="text-xs font-medium mb-2 line-clamp-2">{task.title}</h5>
+            <h5 className="text-xs font-medium mb-2 line-clamp-2 text-card-foreground">{task.title}</h5>
 
             <div className="flex items-center gap-2 mt-2">
                 {/* Agent Avatar / Name */}
