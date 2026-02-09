@@ -50,8 +50,8 @@ export default function TeamDetailPage() {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const teams = useQuery(api.teams.list);
-    const team = teams?.find((t) => t.slug === slug);
-    const allAgents = useQuery(api.agents.list) || [];
+    const team = teams?.find((t: any) => t.slug === slug);
+    const allAgents = useQuery(api.agents.list, {}) || [];
     const allTasks = useQuery(api.tasks.list) || [];
 
     // Tool icon mapping
@@ -71,24 +71,24 @@ export default function TeamDetailPage() {
 
     if (!team) return <div className="p-8 text-center">Department not found.</div>;
 
-    const teamAgents = allAgents.filter((a) => a.teamId === team._id);
-    const teamTasks = allTasks.filter((t) => t.teamId === team._id);
+    const teamAgents = allAgents.filter((a: any) => a.teamId === team._id);
+    const teamTasks = allTasks.filter((t: any) => t.teamId === team._id);
 
     // Calculate stats
-    const activeAgents = teamAgents.filter((a) => {
+    const activeAgents = teamAgents.filter((a: any) => {
         const isOffline = a.status === "offline" || (Date.now() - (a.lastHeartbeat || 0) > 60000);
         return !isOffline;
     });
     const activeRate = teamAgents.length > 0 ? Math.round((activeAgents.length / teamAgents.length) * 100) : 0;
-    const completedTasks = teamTasks.filter((t) => t.status === "done").length;
+    const completedTasks = teamTasks.filter((t: any) => t.status === "done").length;
     const avgCompletionTime = "2.3h"; // TODO: Calculate from actual data
 
     const stats = {
         totalAgents: teamAgents.length,
         activeAgents: activeAgents.length,
         totalTasks: teamTasks.length,
-        completedTasks: teamTasks.filter((t) => t.status === "done").length,
-        activeTasks: teamTasks.filter((t) => t.status === "in_progress").length,
+        completedTasks: teamTasks.filter((t: any) => t.status === "done").length,
+        activeTasks: teamTasks.filter((t: any) => t.status === "in_progress").length,
         completionRate: teamTasks.length > 0 ? (completedTasks / teamTasks.length) * 100 : 0,
     };
 
@@ -128,13 +128,13 @@ export default function TeamDetailPage() {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setIsChatVisible(!isChatVisible)}
-                                className={`flex flex-col h-auto py-1 px-3 hover:bg-primary/10 transition-colors ${isChatVisible ? 'text-primary' : 'text-muted-foreground'}`}
+                                onClick={() => setSelectedTab("communications")}
+                                className={`flex flex-col h-auto py-1 px-3 hover:bg-primary/10 transition-colors ${selectedTab === 'communications' ? 'text-primary' : 'text-muted-foreground'}`}
                             >
                                 <span className="text-[9px] uppercase font-bold tracking-tighter mb-0.5">Tactical Comms</span>
                                 <div className="flex items-center gap-2">
-                                    <MessageSquare size={14} className={isChatVisible ? 'animate-pulse' : ''} />
-                                    <span className="text-sm font-bold">{isChatVisible ? 'ONLINE' : 'HIDDEN'}</span>
+                                    <MessageSquare size={14} className={selectedTab === 'communications' ? 'animate-pulse' : ''} />
+                                    <span className="text-sm font-bold">{selectedTab === 'communications' ? 'ONLINE' : 'LINK'}</span>
                                 </div>
                             </Button>
                         </div>
@@ -157,6 +157,7 @@ export default function TeamDetailPage() {
                         <TabsList className="bg-muted/50 p-1">
                             <TabsTrigger value="overview">Overview</TabsTrigger>
                             <TabsTrigger value="agents">Agents</TabsTrigger>
+                            <TabsTrigger value="communications">Communications</TabsTrigger>
                             <TabsTrigger value="missions">Missions</TabsTrigger>
                             <TabsTrigger value="analytics">Analytics</TabsTrigger>
                             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -165,9 +166,7 @@ export default function TeamDetailPage() {
 
                     <TabsContent value="overview" className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <motion.div
-                                className={`space-y-6 transition-all duration-500 ease-in-out ${isChatVisible ? 'lg:col-span-2' : 'lg:col-span-3'}`}
-                            >
+                            <div className="lg:col-span-3 space-y-6">
                                 {/* Team Health */}
                                 <Card>
                                     <CardHeader>
@@ -270,23 +269,13 @@ export default function TeamDetailPage() {
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </motion.div>
+                            </div>
+                        </div>
+                    </TabsContent>
 
-                            <AnimatePresence>
-                                {isChatVisible && (
-                                    <motion.div
-                                        initial={{ opacity: 0, x: 20, width: 0 }}
-                                        animate={{ opacity: 1, x: 0, width: 'auto' }}
-                                        exit={{ opacity: 0, x: 20, width: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="lg:col-span-1 overflow-hidden"
-                                    >
-                                        <div className="sticky top-[80px]">
-                                            <TeamChat teamId={team._id} teamName={team.name} />
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                    <TabsContent value="communications" className="m-0 border-none p-0">
+                        <div className="flex flex-col h-[calc(100vh-200px)] pt-2 min-h-0">
+                            <TeamChat teamId={team._id} teamName={team.name} />
                         </div>
                     </TabsContent>
 
@@ -369,7 +358,7 @@ export default function TeamDetailPage() {
                             </div>
                         </div>
 
-                        <div className="h-[calc(100vh-420px)] min-h-[400px]">
+                        <div className="h-[calc(100vh-280px)] min-h-[500px]">
                             {viewMode === "board" ? (
                                 <TaskBoard
                                     tasks={teamTasks}

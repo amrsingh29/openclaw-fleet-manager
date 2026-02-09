@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, MessageSquare, User, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { StrategicDirective } from "./strategic-directive";
+import { Badge } from "@/components/ui/badge";
 
 interface TeamChatProps {
     teamId: Id<"teams">;
@@ -22,7 +25,7 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
     const channelId = `team-${teamId}`;
     const messages = useQuery(api.messages.list, { channelId }) || [];
     const sendMessage = useMutation(api.messages.send);
-    const agents = useQuery(api.agents.list) || [];
+    const agents = useQuery(api.agents.list, {}) || [];
 
     // Auto-scroll
     useEffect(() => {
@@ -54,23 +57,26 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-160px)] min-h-[500px] bg-transparent overflow-hidden">
+        <div className="flex flex-col h-full bg-transparent overflow-hidden px-4">
             {/* Minimal Header */}
-            <div className="flex-none px-1 py-4 flex items-center justify-between">
+            <div className="flex-none px-1 py-2 flex items-center justify-between border-b border-primary/10 mb-4 pb-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
-                        <MessageSquare className="w-4 h-4 text-primary" />
+                    <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                        <MessageSquare className="w-3 h-3 text-primary" />
                     </div>
-                    <div>
-                        <h3 className="text-sm font-bold tracking-tight">{teamName} Comms</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-[12px] font-bold tracking-tight uppercase opacity-80">{teamName} Channel</h3>
+                        <div className="flex items-center gap-1.5 ml-2">
                             <span className="relative flex h-1.5 w-1.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
                             </span>
-                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest">Live Uplink</span>
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest opacity-50">Active Uplink</span>
                         </div>
                     </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="text-[9px] font-mono px-2 py-0.5 rounded bg-primary/5 text-primary/50 border border-primary/10">AGENT_SYNC_ENABLED</div>
                 </div>
             </div>
 
@@ -88,7 +94,7 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
                         ) : (
                             [...messages].reverse().map((msg, idx, array) => {
                                 const isAgent = !!msg.fromAgentId;
-                                const agent = isAgent ? agents.find(a => a._id === msg.fromAgentId) : null;
+                                const agent = isAgent ? agents.find((a: any) => a._id === msg.fromAgentId) : null;
                                 const color = msg.fromAgentId ? getAgentColor(msg.fromAgentId) : "var(--primary)";
 
                                 // Grouping
@@ -121,19 +127,29 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
                                                     <span className="text-[10px] font-bold text-foreground/90 uppercase tracking-tighter text-muted-foreground">
                                                         {agent ? agent.name : (!isAgent ? "Commander" : "Agent")}
                                                     </span>
+                                                    {(msg as any).depth !== undefined && (msg as any).depth > 0 && (
+                                                        <Badge variant="outline" className="h-3 text-[8px] px-1 border-orange-500/30 text-orange-500 font-mono scale-75 origin-left">
+                                                            DEPTH: {(msg as any).depth}
+                                                        </Badge>
+                                                    )}
                                                     <span className="text-[9px] opacity-30 font-mono">
                                                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
                                             )}
-                                            <div className={`
-                                                px-3 py-2 rounded-2xl text-[12px] leading-relaxed shadow-lg border backdrop-blur-sm
-                                                ${!isAgent
-                                                    ? 'bg-primary text-primary-foreground border-primary/20 rounded-tr-none'
-                                                    : 'bg-card/40 border-white/5 rounded-tl-none glass-morphism'}
-                                            `}>
-                                                {msg.content}
-                                            </div>
+
+                                            {msg.content.includes("ACTION: create_task") ? (
+                                                <StrategicDirective content={msg.content} agents={agents} />
+                                            ) : (
+                                                <div className={`
+                                                    px-3 py-2 rounded-2xl text-[12px] leading-relaxed shadow-lg border backdrop-blur-sm
+                                                    ${!isAgent
+                                                        ? 'bg-primary text-primary-foreground border-primary/20 rounded-tr-none'
+                                                        : 'bg-card/40 border-white/5 rounded-tl-none glass-morphism'}
+                                                `}>
+                                                    <MarkdownRenderer content={msg.content} className={!isAgent ? "text-primary-foreground" : "text-foreground/90"} />
+                                                </div>
+                                            )}
                                         </div>
                                     </motion.div>
                                 );

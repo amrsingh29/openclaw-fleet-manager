@@ -1,5 +1,5 @@
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api.js";
+import { api } from "../mission-control-v2/convex/_generated/api.js";
 import * as dotenv from "dotenv";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -23,16 +23,20 @@ const AGENT_NAME_ARG: string = agentName;
 const SESSION_KEY = `universal:${Date.now()}`;
 
 // CONFIG
-const CONVEX_URL = process.env.VITE_CONVEX_URL || process.env.CONVEX_URL;
-if (!CONVEX_URL) {
+const deploymentUrl = process.env.VITE_CONVEX_URL || process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL || "";
+console.log(`🔌 Connecting to Mission Control at ${deploymentUrl} as [${AGENT_NAME_ARG}]...`);
+
+if (!deploymentUrl) {
     console.error("❌ Missing CONVEX_URL env var");
     process.exit(1);
 }
-const client = new ConvexHttpClient(CONVEX_URL);
+const client = new ConvexHttpClient(deploymentUrl);
 
 // GLOBAL STATE
 let agentConfig: any = null;
 let brain: AgentBrain | null = null;
+let orchestration: OrchestrationSkills | null = null;
+let apiKey: string | undefined = undefined;
 
 async function main() {
     console.log(`🔌 Connecting to Mission Control as [${AGENT_NAME_ARG}]...`);
@@ -49,7 +53,7 @@ async function main() {
         console.log(`🧠 Soul Loaded: ${agentConfig.soul ? "Yes" : "Using Default"}`);
 
         // 2. Fetch API Keys from Secure Vault
-        let apiKey = process.env.OPENAI_API_KEY;
+        apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey && agentConfig.orgId) {
             console.log(`🔐 Fetching API Key from Secure Vault for Org: ${agentConfig.orgId}...`);
             try {
@@ -98,7 +102,7 @@ function startHeartbeat(id: any) {
             if (freshConfig.soul !== agentConfig.soul) {
                 console.log(`♻️ Soul Update Detected for ${agentConfig.name}! Reloading Brain...`);
                 agentConfig = freshConfig; // Update global state
-                brain = new AgentBrain(agentConfig.name, agentConfig.soul);
+                brain = new AgentBrain(agentConfig.name, agentConfig.soul, apiKey);
                 console.log(`🧠 Brain Reloaded.`);
             }
         } catch (err) {
@@ -125,72 +129,70 @@ async function runLoop(agentId: any) {
 
 // --- LOGIC (Shared with agent-runner.ts but using global state) ---
 
+import { OrchestrationSkills } from "./orchestration_skills.js";
+
 async function processTasks(agentId: any) {
-    // 1. Check for current active task
+    if (!orchestration) {
+        orchestration = new OrchestrationSkills(client as any, agentConfig.orgId);
+    }
+
+    // 1. Check for tasks EXPLICITLY assigned to me
     const tasks = await client.query(api.tasks.list);
-    const myTask = tasks.find((t: any) => t.assigneeIds?.includes(agentId) && (t.status === 'in_progress' || t.status === 'assigned'));
+    const myTask = tasks.find((t: any) =>
+        t.assignedTo === agentId && (t.status === 'in_progress' || t.status === 'pending' || t.status === 'assigned' || t.status === 'inbox')
+    );
 
     if (myTask) {
         // Auto-Start
-        if (myTask.status === 'assigned') {
-            await client.mutation(api.tasks.updateStatus, { id: myTask._id, status: 'in_progress' });
-            // 4. Update status to Working
+        if (myTask.status === 'assigned' || (myTask.status as string) === 'pending' || (myTask.status as string) === 'inbox') {
+            await client.mutation((api.messages as any).updateTaskStatus, { taskId: myTask._id, status: 'in_progress' });
             await client.mutation(api.agents.updateStatus, { id: agentId, status: 'working' });
             return;
         }
 
-        console.log(`🚀 Working on: ${myTask.title}`);
+        console.log(`🚀 Strategic Work: ${myTask.title} (Mission: ${(myTask as any).missionId || "None"})`);
+
+        // HEARTBEAT UPDATE for this specific task
+        await client.mutation((api.messages as any).updateTaskStatus as any, {
+            taskId: myTask._id,
+            status: 'in_progress',
+            // heartbeat: Date.now() // Temporarily disabled due to schema mismatch
+        });
 
         let output = "[Error: Brain not initialized]";
         if (brain) {
-            // Real Intelligence: Agents actually think about the task!
-            // Wait a random time to simulate "effort" (and avoid rate limits)
-            await new Promise(r => setTimeout(r, 2000));
-
             output = await brain.work(myTask.title, myTask.description);
-        } else {
-            await new Promise(r => setTimeout(r, 1000));
         }
 
-        await client.mutation(api.tasks.complete, {
+        // COMPLETE TASK with output/result
+        await client.mutation((api.messages as any).updateTaskStatus, {
             taskId: myTask._id,
-            agentId,
-            output: output
-        });
+            status: 'done',
+            result: output
+        } as any);
+
         await client.mutation(api.agents.updateStatus, { id: agentId, status: 'idle' });
+        console.log(`✅ Task Completed: ${myTask.title}`);
+
+        // 🎯 Proactive Feedback: Notify the team channel that the task is done
+        await client.mutation(api.messages.send, {
+            channelId: `team-${agentConfig.teamId}`,
+            content: `✅ TASK COMPLETED: ${myTask.title}\nRESULT: ${output}`,
+            agentId: agentId,
+            depth: 1
+        } as any);
+
         return;
     }
 
-    // 2. No active task? Look for new work in Inbox
-    const inboxTasks = tasks.filter((t: any) => t.status === 'inbox');
-
-    // Prioritize Team Tasks, then Global Tasks
-    const eligibleTask = inboxTasks.find((t: any) => {
-        // If task is assigned to a specific team, I must be on that team
-        if (t.teamId) {
-            return t.teamId === agentConfig.teamId;
-        }
-        // If task is global (no teamId), anyone can take it (or maybe only if I don't have a team preference?)
-        // For now, allow global tasks to be taken by anyone.
-        return true;
-    });
-
-    if (eligibleTask) {
-        console.log(`✋ Claiming task: ${eligibleTask.title}`);
-        const success = await client.mutation(api.tasks.claim, {
-            taskId: eligibleTask._id,
-            agentId
-        });
-
-        if (success) {
-            await client.mutation(api.agents.updateStatus, { id: agentId, status: 'working' });
-        }
-    }
+    // 2. Legacy Inbox Handling (If still using global inbox)
+    // ...
 }
 
-// Multi-channel Cursor Tracking
+// Multi-channel Cursor Tracking - look back 5 minutes on start to catch missed triggers
+const START_TIME = Date.now() - (5 * 60 * 1000);
 const lastChatTimes: Record<string, number> = {
-    'general': Date.now()
+    'general': START_TIME
 };
 
 async function processChat(agentId: any) {
@@ -202,7 +204,7 @@ async function processChat(agentId: any) {
         const teamChannel = `team-${agentConfig.teamId}`;
         channels.push(teamChannel);
         if (!lastChatTimes[teamChannel]) {
-            lastChatTimes[teamChannel] = Date.now();
+            lastChatTimes[teamChannel] = START_TIME;
         }
     }
 
@@ -210,7 +212,7 @@ async function processChat(agentId: any) {
         const taskChannel = `task-${agentConfig.currentTaskId}`;
         channels.push(taskChannel);
         if (!lastChatTimes[taskChannel]) {
-            lastChatTimes[taskChannel] = Date.now();
+            lastChatTimes[taskChannel] = START_TIME;
         }
     }
 
@@ -244,27 +246,96 @@ async function processChat(agentId: any) {
                 // 2. If it's a Team Channel (Proactive Mode)
                 let shouldReply = !isSelf && (isMentioned || isTeamChannel);
 
+                // 3. 🛡️ LOOP SHIELD: CASE CLOSED Check
+                if (msg.content.includes("CASE CLOSED") || msg.content.includes("INCIDENT RESOLVED")) {
+                    console.log(`[${channelId}] 🛑 Misson Complete signal detected. Standing by.`);
+                    continue;
+                }
+
+                // 4. 🛡️ LOOP SHIELD: Ignore Task Completion notifications unless mentioned
+                if (msg.content.includes("TASK COMPLETED") && !isMentioned) {
+                    // checks if I was the one who completed it to strictly avoid self-loops
+                    if (msg.fromAgentId === agentId) {
+                        console.log(`[${channelId}] 🤐 Ignoring my own task completion notification.`);
+                        continue;
+                    }
+                    // Otherwise, only the Commander (Jarvis) should likely respond to these proactively
+                    if (!agentConfig.role.toLowerCase().includes("commander") && agentConfig.name !== "Jarvis") {
+                        console.log(`[${channelId}] 🤐 Ignoring task completion (Not my jurisdiction).`);
+                        continue;
+                    }
+                }
+
                 if (shouldReply) {
                     const mode = isMentioned ? "Mentioned" : "Proactive";
                     console.log(`[${channelId}] 💬 ${mode} (Depth: ${currentDepth}): "${msg.content}"`);
 
-                    // Goal-Aware Filtering: If it's proactive (not mentioned), check if it's a real goal
-                    if (isTeamChannel && !isMentioned) {
+                    // 5. 🛡️ ORCHESTRATION: Strict Subordination
+                    // If I am NOT the Commander (Jarvis), I should NOT reply proactively to general chatter.
+                    // I should only reply if:
+                    // a) I am explicitly mentioned (@Marcus)
+                    // b) The message is from the Commander (Jarvis) - implicit via isMentioned usually, but let's be safe
+                    // c) It is a direct DM (not a Team Channel)
+                    const isCommander = agentConfig.role.toLowerCase().includes("commander") || agentConfig.name === "Jarvis";
+
+                    if (!isCommander && isTeamChannel && !isMentioned) {
+                        // Optional: Check if message is from Commander? 
+                        // For now, Strict Mode: Wait for specific instructions (which usually come as Tasks or @Mentions)
+                        // console.log(`[${channelId}] 🤐 Strict Subordination: Waiting for orders.`);
+                        continue;
+                    }
+
+                    // Goal-Aware Filtering (Only for Commander now)
+                    if (isTeamChannel && !isMentioned && isCommander) {
                         // For now, let's use a simple regex or keyword check to save tokens
                         // In a real scenario, this would be a "cheap" LLM intent classification
-                        const isGoal = /need|help|fix|check|restart|error|bug|issue|task/i.test(msg.content);
+                        const isGoal = /need|help|fix|check|restart|error|bug|issue|task|urgent|critical|report/i.test(msg.content);
                         if (!isGoal) {
                             // console.log(`[${channelId}] 🤐 Ignoring chatter (No goal intent detected).`);
                             continue;
                         }
                     }
 
-                    const reply = await brain.ask([], msg.content);
+                    // ORCHESTRATION: Inject fleet capabilities if manager
+                    let contextMessage = msg.content;
+                    if (agentConfig.role.toLowerCase().includes("commander") || agentConfig.name === "Jarvis") {
+                        const fleet = await orchestration!.get_fleet_capabilities();
+                        const tasks = await client.query(api.tasks.list);
+                        const activeTasks = tasks.filter((t: any) => t.missionId && t.status !== 'archived').slice(0, 5);
+
+                        contextMessage = `FLEET_CAPABILITIES: ${JSON.stringify(fleet)}\n\nACTIVE_TASKS: ${JSON.stringify(activeTasks)}\n\nUSER_MESSAGE: ${msg.content}`;
+                    }
+
+                    const reply = await brain.ask([], contextMessage);
 
                     // 🛡️ Sentient Silence: Check for NO_REPLY
                     if (reply.includes("NO_REPLY")) {
                         console.log(`[${channelId}] 🤐 Agent chose silence (Sentient Silence).`);
                         continue;
+                    }
+
+                    // 🎯 ORCHESTRATION: Parse and Execute Actions
+                    if (reply.includes("ACTION: create_task")) {
+                        console.log(`🎯 Orchestration Action detected in [${agentConfig.name}] response!`);
+                        const taskBlocks = reply.split("ACTION: create_task").slice(1);
+                        for (const block of taskBlocks) {
+                            const title = block.match(/TITLE: (.*)/)?.[1]?.trim();
+                            const desc = block.match(/DESCRIPTION: (.*)/)?.[1]?.trim();
+                            const assignee = block.match(/ASSIGNEE_ID: (.*)/)?.[1]?.trim();
+                            const missionId = block.match(/MISSION_ID: (.*)/)?.[1]?.trim() || `mission-${Date.now()}`;
+                            const priority = parseInt(block.match(/PRIORITY: (.*)/)?.[1] || "5");
+
+                            if (title && desc && assignee) {
+                                await orchestration!.create_task({
+                                    title,
+                                    description: desc,
+                                    assigneeId: assignee,
+                                    missionId,
+                                    priority,
+                                    teamId: agentConfig.teamId
+                                });
+                            }
+                        }
                     }
 
                     await client.mutation(api.messages.send, {

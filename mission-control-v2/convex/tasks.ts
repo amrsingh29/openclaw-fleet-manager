@@ -18,8 +18,8 @@ export const create = mutation({
     args: {
         title: v.string(),
         description: v.string(),
-        status: v.union(v.literal("inbox"), v.literal("assigned"), v.literal("in_progress"), v.literal("review"), v.literal("done"), v.literal("blocked")),
-        priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+        status: v.string(),
+        priority: v.optional(v.number()),
         teamId: v.optional(v.id("teams"))
     },
     handler: async (ctx, args) => {
@@ -49,7 +49,7 @@ export const create = mutation({
 export const updateStatus = mutation({
     args: {
         id: v.id("tasks"),
-        status: v.union(v.literal("inbox"), v.literal("assigned"), v.literal("in_progress"), v.literal("review"), v.literal("done"), v.literal("blocked"))
+        status: v.string()
     },
     handler: async (ctx, args) => {
         const orgId = await maybeGetOrgId(ctx);
@@ -59,7 +59,7 @@ export const updateStatus = mutation({
         await ctx.db.patch(args.id, { status: args.status, lastUpdated: Date.now() });
 
         // Trigger Event Stream
-        await ctx.scheduler.runAfter(0, internal.events.processEvent, {
+        await ctx.scheduler.runAfter(0, internal.events.processEvent as any, {
             type: "task_status_changed",
             orgId: task.orgId || "org_2saas_dev_mock_id",
             metadata: { taskId: args.id, status: args.status }
@@ -70,29 +70,25 @@ export const updateStatus = mutation({
 export const claim = mutation({
     args: { taskId: v.id("tasks"), agentId: v.id("agents") },
     handler: async (ctx, args) => {
-        // Claiming might be by agent (maybeGetOrgId)
         const orgId = await maybeGetOrgId(ctx);
         const task = await ctx.db.get(args.taskId);
         if (!task || (orgId && task.orgId !== orgId)) {
             return false;
         }
 
-        // Atomic check: Is it still in inbox?
-        if (task.status !== 'inbox') {
-            return false; // Already taken
+        if (task.status !== 'inbox' && task.status !== 'pending') {
+            return false;
         }
 
         const agent = await ctx.db.get(args.agentId);
         if (!agent || agent.orgId !== task.orgId) throw new Error("Unauthorized agent");
 
-        // Claim it
         await ctx.db.patch(args.taskId, {
             status: 'in_progress',
-            assigneeIds: [args.agentId],
+            assignedTo: args.agentId,
             lastUpdated: Date.now()
         });
 
-        // Log assignment
         await ctx.db.insert("activities", {
             type: "task_assigned",
             agentId: args.agentId,
@@ -118,11 +114,10 @@ export const assign = mutation({
 
         await ctx.db.patch(args.taskId, {
             status: 'assigned',
-            assigneeIds: [args.agentId],
+            assignedTo: args.agentId,
             lastUpdated: Date.now()
         });
 
-        // Log assignment
         await ctx.db.insert("activities", {
             type: "task_assigned",
             agentId: args.agentId,
@@ -144,12 +139,11 @@ export const complete = mutation({
         if (!task || (orgId && task.orgId !== orgId)) throw new Error("Unauthorized");
 
         await ctx.db.patch(args.taskId, {
-            status: 'done',
-            output: args.output,
+            status: 'completed',
+            result: args.output,
             lastUpdated: Date.now()
         });
 
-        // Log completion
         await ctx.db.insert("activities", {
             type: "task_completed",
             agentId: args.agentId,
@@ -171,5 +165,26 @@ export const clearAll = mutation({
         for (const task of tasks) {
             await ctx.db.delete(task._id);
         }
+    }
+});
+
+export const deleteTask = mutation({
+    args: { id: v.id("tasks") },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.id);
+    }
+});
+
+export const patchTask = mutation({
+    args: {
+        id: v.id("tasks"),
+        teamId: v.optional(v.id("teams")),
+        status: v.optional(v.string()),
+        priority: v.optional(v.number()),
+        assignedTo: v.optional(v.id("agents")),
+    },
+    handler: async (ctx, args) => {
+        const { id, ...parts } = args;
+        await ctx.db.patch(id, parts);
     }
 });

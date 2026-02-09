@@ -74,3 +74,70 @@ export const send = mutation({
         }
     },
 });
+
+export const createTaskShort = mutation({
+    args: {
+        title: v.string(),
+        description: v.string(),
+        status: v.string(),
+        assignedTo: v.optional(v.id("agents")),
+        missionId: v.optional(v.string()),
+        priority: v.optional(v.number()),
+        teamId: v.optional(v.id("teams")),
+        orgId: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const taskId = await ctx.db.insert("tasks", {
+            title: args.title,
+            description: args.description,
+            status: args.status,
+            assignedTo: args.assignedTo,
+            missionId: args.missionId,
+            priority: args.priority || 5,
+            teamId: args.teamId,
+            orgId: args.orgId,
+            createdTime: Date.now(),
+            lastUpdated: Date.now(),
+        });
+
+        // Log activity
+        await ctx.db.insert("activities", {
+            type: "task_created",
+            agentId: args.assignedTo,
+            message: `New task created: ${args.title}`,
+            orgId: args.orgId,
+            timestamp: Date.now(),
+        });
+
+        return taskId;
+    },
+});
+
+export const updateTaskStatus = mutation({
+    args: {
+        taskId: v.id("tasks"),
+        status: v.string(),
+        result: v.optional(v.string()),
+        heartbeat: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const task = await ctx.db.get(args.taskId);
+        if (!task) throw new Error("Task not found");
+
+        await ctx.db.patch(args.taskId, {
+            status: args.status,
+            result: args.result,
+            heartbeat: args.heartbeat,
+            lastUpdated: Date.now(),
+        });
+
+        // Log activity
+        await ctx.db.insert("activities", {
+            type: "status_change",
+            agentId: task.assignedTo,
+            message: `Task ${task.title} status changed to ${args.status}`,
+            orgId: task.orgId,
+            timestamp: Date.now(),
+        });
+    },
+});
