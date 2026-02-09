@@ -240,7 +240,7 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
                                         )}
                                         {isGrouped && <div className="w-8 flex-none" />}
 
-                                        <div className={`flex flex-col max-w-[85%] ${isMe ? "items-end" : "items-start"}`}>
+                                        <div className={`flex flex-col min-w-0 max-w-[85%] ${isMe ? "items-end" : "items-start"}`}>
                                             {!isGrouped && (
                                                 <div className="flex items-center gap-2 mb-1 px-1">
                                                     <span className="text-[11px] font-bold text-foreground/90">
@@ -262,9 +262,10 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
                                             ) : (
                                                 <div className={`
                                                     relative px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-xl border
+                                                    overflow-hidden break-words w-fit max-w-[85%] md:max-w-2xl
                                                     ${isMe
                                                         ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-none"
-                                                        : "glass-morphism bg-card/40 border-white/5 rounded-tl-none"}
+                                                        : "glass-morphism bg-muted dark:bg-black/40 border-border/50 dark:border-white/5 rounded-tl-none"}
                                                 `}>
                                                     <MarkdownRenderer content={msg.content} className={isMe ? "text-primary-foreground" : "text-foreground/90"} />
                                                 </div>

@@ -67,6 +67,7 @@ export function CreateMissionModal({
                 status: defaultStatus,
                 priority,
                 teamId: selectedTeamId || teamId,
+                missionId: `mission-${Date.now()}`
             });
 
             toast.success("Mission created successfully", {

@@ -7,10 +7,16 @@ export const list = query({
     args: {},
     handler: async (ctx) => {
         const orgId = await getOrgId(ctx);
-        return await ctx.db.query("tasks")
+        const tasks = await ctx.db.query("tasks")
             .filter(q => q.eq(q.field("orgId"), orgId))
             .order("desc")
             .collect();
+
+        // Ensure missionId exists for all tasks (backfill for old data)
+        return tasks.map(t => ({
+            ...t,
+            missionId: t.missionId || `legacy-mission`
+        }));
     },
 });
 
@@ -20,7 +26,8 @@ export const create = mutation({
         description: v.string(),
         status: v.string(),
         priority: v.optional(v.number()),
-        teamId: v.optional(v.id("teams"))
+        teamId: v.optional(v.id("teams")),
+        missionId: v.optional(v.string())
     },
     handler: async (ctx, args) => {
         const orgId = await getOrgId(ctx);
@@ -30,6 +37,7 @@ export const create = mutation({
             status: args.status,
             priority: args.priority,
             teamId: args.teamId,
+            missionId: args.missionId,
             orgId: orgId,
             createdTime: Date.now(),
             lastUpdated: Date.now(),

@@ -20,7 +20,7 @@ export function StrategicDirective({ content, agents }: StrategicDirectiveProps)
     };
 
     return (
-        <div className="flex flex-col gap-3 w-full max-w-2xl">
+        <div className="flex flex-col gap-3 w-full max-w-full md:max-w-2xl overflow-hidden">
             {mainText.trim() && (
                 <div className="px-4 py-3 rounded-2xl text-sm bg-card/40 border border-white/5 rounded-tl-none">
                     <MarkdownRenderer content={mainText} className="text-foreground/90" />
@@ -41,7 +41,7 @@ export function StrategicDirective({ content, agents }: StrategicDirectiveProps)
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: i * 0.1 }}
-                        className="p-4 rounded-xl border border-cyan-500/30 bg-cyan-500/5 backdrop-blur-md flex flex-col gap-3 relative overflow-hidden group"
+                        className="p-4 rounded-xl border border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/10 dark:bg-cyan-500/5 backdrop-blur-md flex flex-col gap-3 relative overflow-hidden group"
                     >
                         {/* Cyber decoration */}
                         <div className="absolute top-0 right-0 p-1 opacity-20 group-hover:opacity-100 transition-opacity">

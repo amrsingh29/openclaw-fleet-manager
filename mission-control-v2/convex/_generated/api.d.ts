@@ -12,7 +12,6 @@ import type * as activities from "../activities.js";
 import type * as agents from "../agents.js";
 import type * as cleanup from "../cleanup.js";
 import type * as crons from "../crons.js";
-import type * as debug from "../debug.js";
 import type * as encryption from "../encryption.js";
 import type * as events from "../events.js";
 import type * as fly_client from "../fly_client.js";
@@ -39,7 +38,6 @@ declare const fullApi: ApiFromModules<{
   agents: typeof agents;
   cleanup: typeof cleanup;
   crons: typeof crons;
-  debug: typeof debug;
   encryption: typeof encryption;
   events: typeof events;
   fly_client: typeof fly_client;

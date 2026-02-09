@@ -57,22 +57,21 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-transparent overflow-hidden px-4">
-            {/* Minimal Header */}
-            <div className="flex-none px-1 py-2 flex items-center justify-between border-b border-primary/10 mb-4 pb-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
-                        <MessageSquare className="w-3 h-3 text-primary" />
+        <div className="flex flex-col h-full bg-background/50 overflow-hidden font-sans">
+            {/* Standard Header */}
+            <div className="h-14 border-b border-border flex items-center justify-between px-6 flex-none bg-card/20 backdrop-blur-sm shadow-sm z-10">
+                <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                        <MessageSquare className="w-4 h-4 text-primary" />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-[12px] font-bold tracking-tight uppercase opacity-80">{teamName} Channel</h3>
-                        <div className="flex items-center gap-1.5 ml-2">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold tracking-tight text-foreground uppercase">
+                                #{teamName} Channel
                             </span>
-                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest opacity-50">Active Uplink</span>
+                            <Badge variant="outline" className="h-4 text-[9px] px-1 border-primary/30 text-primary animate-pulse uppercase">LIVE</Badge>
                         </div>
+                        <span className="text-[10px] text-muted-foreground uppercase opacity-50">Sector Uplink Protocol</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -81,8 +80,8 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
             </div>
 
             {/* Message Feed */}
-            <ScrollArea className="flex-1 min-h-0 pr-4">
-                <div className="space-y-6">
+            <ScrollArea className="flex-1 min-h-0 px-4 md:px-10 lg:px-20">
+                <div className="max-w-5xl mx-auto space-y-6 py-8">
                     <AnimatePresence initial={false}>
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-[300px] text-center opacity-40">
@@ -121,7 +120,7 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
                                         )}
                                         {isGrouped && <div className="w-8 flex-none" />}
 
-                                        <div className={`flex flex-col max-w-[85%] ${!isAgent ? 'items-end' : 'items-start'}`}>
+                                        <div className={`flex flex-col min-w-0 max-w-[85%] ${!isAgent ? 'items-end' : 'items-start'}`}>
                                             {!isGrouped && (
                                                 <div className="flex items-center gap-2 mb-1 px-1">
                                                     <span className="text-[10px] font-bold text-foreground/90 uppercase tracking-tighter text-muted-foreground">
@@ -142,10 +141,11 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
                                                 <StrategicDirective content={msg.content} agents={agents} />
                                             ) : (
                                                 <div className={`
-                                                    px-3 py-2 rounded-2xl text-[12px] leading-relaxed shadow-lg border backdrop-blur-sm
+                                                    relative px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-xl border
+                                                    overflow-hidden break-words w-fit max-w-[85%] md:max-w-2xl
                                                     ${!isAgent
                                                         ? 'bg-primary text-primary-foreground border-primary/20 rounded-tr-none'
-                                                        : 'bg-card/40 border-white/5 rounded-tl-none glass-morphism'}
+                                                        : 'glass-morphism bg-muted dark:bg-black/40 border-border/50 dark:border-white/5 rounded-tl-none'}
                                                 `}>
                                                     <MarkdownRenderer content={msg.content} className={!isAgent ? "text-primary-foreground" : "text-foreground/90"} />
                                                 </div>
@@ -161,14 +161,14 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
                 </div>
             </ScrollArea>
 
-            {/* Premium Integrated Input */}
-            <form onSubmit={handleSend} className="flex-none pt-6">
-                <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/0 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500" />
-                    <div className="relative">
+            {/* Command Bar */}
+            <div className="flex-none p-6 md:px-10 lg:px-20 bg-gradient-to-t from-background via-background/80 to-transparent pt-10">
+                <form onSubmit={handleSend} className="max-w-5xl mx-auto relative group">
+                    <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-2xl opacity-0 group-focus-within:opacity-30 transition-opacity duration-500" />
+                    <div className="relative glass-morphism border border-white/10 rounded-2xl p-2 flex items-center gap-2 shadow-2xl bg-muted/30">
                         <Input
-                            placeholder="Signal to sector..."
-                            className="h-11 bg-background/40 border-white/5 group-focus-within:border-primary/50 transition-all rounded-xl pr-12 text-sm placeholder:text-muted-foreground/30 focus-visible:ring-0"
+                            placeholder={`Signal to #${teamName}...`}
+                            className="border-none bg-transparent focus-visible:ring-0 text-sm h-12 shadow-none placeholder:text-muted-foreground/50"
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                         />
@@ -176,17 +176,13 @@ export function TeamChat({ teamId, teamName }: TeamChatProps) {
                             size="icon"
                             type="submit"
                             disabled={!newMessage.trim()}
-                            className="absolute right-1.5 top-1.5 w-8 h-8 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 transition-all shadow-lg"
+                            className="h-10 w-10 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg transition-all active:scale-95"
                         >
-                            <Send className="w-3.5 h-3.5" />
+                            <Send className="w-4 h-4" />
                         </Button>
                     </div>
-                </div>
-                <div className="flex items-center gap-4 mt-3 px-1 text-[9px] text-muted-foreground/40 font-mono">
-                    <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-primary/40" /> ENCRYPTION: AES-256</span>
-                    <span className="ml-auto">SECTOR_LOCKED</span>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     );
 }

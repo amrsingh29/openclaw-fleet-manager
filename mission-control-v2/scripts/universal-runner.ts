@@ -1,12 +1,14 @@
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../mission-control-v2/convex/_generated/api.js";
+import { api } from "../convex/_generated/api.js";
 import * as dotenv from "dotenv";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { AgentBrain } from "./openclaw_brain.js";
 
 const execAsync = promisify(exec);
-dotenv.config();
+import path from "path";
+const envPath = path.resolve(process.cwd(), ".env");
+dotenv.config({ path: envPath });
 
 // ARGUMENT PARSING
 const rawAgentName = process.argv.find(arg => arg.startsWith("--name="))?.split("=")[1];
