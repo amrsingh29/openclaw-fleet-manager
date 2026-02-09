@@ -43,6 +43,7 @@ export default defineSchema({
         orgId: v.optional(v.string()), // <--- Multi-tenancy
         timestamp: v.number(),
         attachments: v.optional(v.array(v.string())),
+        depth: v.optional(v.number()), // <--- Recursion prevention
     }),
     activities: defineTable({
         type: v.string(), // "task_created", "message_sent", "status_change", etc.

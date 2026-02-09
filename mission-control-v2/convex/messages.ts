@@ -40,6 +40,7 @@ export const send = mutation({
         content: v.string(),
         agentId: v.optional(v.id("agents")),
         taskId: v.optional(v.id("tasks")),
+        depth: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const orgId = await maybeGetOrgId(ctx);
@@ -57,7 +58,8 @@ export const send = mutation({
                 fromAgentId: args.agentId,
                 taskId: args.taskId,
                 timestamp: Date.now(),
-                orgId: finalOrgId
+                orgId: finalOrgId,
+                depth: args.depth || 0
             });
         } else {
             // Sent by human manager
@@ -66,7 +68,8 @@ export const send = mutation({
                 channelId: args.channelId,
                 content: args.content,
                 timestamp: Date.now(),
-                orgId: userOrgId
+                orgId: userOrgId,
+                depth: 0 // Reset depth on human message
             });
         }
     },

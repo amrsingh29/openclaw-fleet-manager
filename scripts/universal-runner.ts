@@ -53,10 +53,11 @@ async function main() {
         if (!apiKey && agentConfig.orgId) {
             console.log(`🔐 Fetching API Key from Secure Vault for Org: ${agentConfig.orgId}...`);
             try {
-                apiKey = await client.action(api.secrets.getSecret, {
+                const vaultKey = await client.action(api.secrets.getSecret, {
                     orgId: agentConfig.orgId,
                     keyName: "openai_api_key"
                 });
+                apiKey = vaultKey ?? undefined;
                 if (apiKey) console.log("✅ Key retrieved from Vault.");
                 else console.warn("⚠️ No key found in Vault. Agent may malfunction.");
             } catch (err: any) {
@@ -227,19 +228,51 @@ async function processChat(agentId: any) {
             for (const msg of newMessages) {
                 const isSelf = msg.fromAgentId === agentId;
                 const isMentioned = msg.content.toLowerCase().includes(agentConfig.name.toLowerCase());
+                const isTeamChannel = channelId.startsWith('team-');
+                const currentDepth = (msg as any).depth || 0;
 
-                // Only reply if mentioned and not self
-                // Note: For Team channels, maybe we should be more proactive? 
-                // For now, let's keep "Mention Only" to avoid noise, unless it's a direct task handoff.
-                if (!isSelf && isMentioned) {
-                    console.log(`[${channelId}] 💬 Mentioned: "${msg.content}"`);
+                // 🛡️ LOOP SHIELD: Recursion Depth Limit
+                if (currentDepth >= 5) {
+                    if (isMentioned) {
+                        console.warn(`[${channelId}] 🛑 Recursion Limit Reached (Depth: ${currentDepth}). Silencing to prevent loop.`);
+                    }
+                    continue;
+                }
+
+                // Decide whether to reply:
+                // 1. If explicitly mentioned
+                // 2. If it's a Team Channel (Proactive Mode)
+                let shouldReply = !isSelf && (isMentioned || isTeamChannel);
+
+                if (shouldReply) {
+                    const mode = isMentioned ? "Mentioned" : "Proactive";
+                    console.log(`[${channelId}] 💬 ${mode} (Depth: ${currentDepth}): "${msg.content}"`);
+
+                    // Goal-Aware Filtering: If it's proactive (not mentioned), check if it's a real goal
+                    if (isTeamChannel && !isMentioned) {
+                        // For now, let's use a simple regex or keyword check to save tokens
+                        // In a real scenario, this would be a "cheap" LLM intent classification
+                        const isGoal = /need|help|fix|check|restart|error|bug|issue|task/i.test(msg.content);
+                        if (!isGoal) {
+                            // console.log(`[${channelId}] 🤐 Ignoring chatter (No goal intent detected).`);
+                            continue;
+                        }
+                    }
+
                     const reply = await brain.ask([], msg.content);
 
+                    // 🛡️ Sentient Silence: Check for NO_REPLY
+                    if (reply.includes("NO_REPLY")) {
+                        console.log(`[${channelId}] 🤐 Agent chose silence (Sentient Silence).`);
+                        continue;
+                    }
+
                     await client.mutation(api.messages.send, {
-                        channelId: channelId, // Reply in the same channel
+                        channelId: channelId,
                         content: reply,
-                        agentId: agentId
-                    });
+                        agentId: agentId,
+                        depth: currentDepth + 1 // 🛡️ Increment Depth
+                    } as any);
                     console.log(`🤖 Reply: ${reply}`);
                 }
             }

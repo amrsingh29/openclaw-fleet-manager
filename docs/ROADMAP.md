@@ -112,6 +112,13 @@ A new **Admin Page** where you can:
 - [ ] Update `tools.ts` to check `agent.teamId` before allowing execution.
 - (e.g., HR cannot run `restart_server`).
 
+## 🛡️ Phase 7: Advanced Communication & Safety
+**Goal**: Optimize agent interactions to prevent infinite loops and reduce operational noise.
+- [ ] **Loop Detection**: Implement a "Chat Depth" limit to automatically kill recursive agent conversations.
+- [ ] **Sentient Silence**: Agents only "interrupt" if they have a >80% confidence match to the topic, even in Team channels.
+- [ ] **Cooldown Protocol**: Force a 5-second "thinking pause" between agent-to-agent replies.
+- [ ] **Adaptive Listening**: GUI toggle to switch an agent between `Mention-Only`, `Proactive`, and `Observer` modes.
+
 ---
 
 ## 🚀 Future Vision: The Hybrid-Autonomy Loop

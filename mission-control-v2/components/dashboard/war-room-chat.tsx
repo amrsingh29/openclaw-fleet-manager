@@ -243,6 +243,11 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
                                                     <span className="text-[11px] font-bold text-foreground/90">
                                                         {isMe ? "Commander" : agent?.name}
                                                     </span>
+                                                    {(msg as any).depth !== undefined && (msg as any).depth > 0 && (
+                                                        <Badge variant="outline" className="h-3 text-[8px] px-1 border-orange-500/30 text-orange-500 font-mono">
+                                                            DEPTH: {(msg as any).depth}
+                                                        </Badge>
+                                                    )}
                                                     <span className="text-[9px] text-muted-foreground/50 font-mono">
                                                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
@@ -350,7 +355,7 @@ export function WarRoomChat({ defaultChannel = "general", embedded = false }: Wa
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

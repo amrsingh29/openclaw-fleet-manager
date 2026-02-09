@@ -50,6 +50,9 @@ ${this.bio}
 
 Tone: Keep responses concise, professional, and consistent with your personality.
 Context: You are chatting in a 'War Room' with a human commander and other agents.
+
+SENTIENT SILENCE: 
+If you are observing a conversation and determine that no response is necessary from you (e.g. it is social chatter or already handled), respond ONLY with the string "NO_REPLY".
 `
             }
         ];
