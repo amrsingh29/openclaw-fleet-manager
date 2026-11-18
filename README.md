@@ -303,9 +303,29 @@ mission-control-dashboard/ React + Vite UI (the supported one)
 docs/                      architecture, concepts, AI setup, roadmap
 ```
 
-### Note on `mission-control-v2`
+### `mission-control-v2`
 
-The Next.js rewrite in `mission-control-v2/` has its own drifted copy of the Convex schema and does not run against this backend without changes. The Vite dashboard is the supported one. Leave v2 alone unless you intend to finish it.
+A second dashboard, Next.js 16, at http://localhost:5178. It shares this backend
+and carries no copy of `convex/`, so it cannot drift again. It builds and runs with
+no configuration beyond `NEXT_PUBLIC_CONVEX_URL`:
+
+```bash
+cd mission-control-v2 && npm install
+cp .env.example .env.local   # already points at 127.0.0.1:3210
+npm run dev                  # http://localhost:5178
+```
+
+It includes the analytics view (fleet throughput, delegation, tool reliability,
+approval loop, token usage), mirroring the Vite dashboard's.
+
+**Auth is off by default.** No Clerk script loads, no organization modal appears,
+and the backend's keyless dev bypass supplies the org id. To require sign-in, set
+`AUTH_MODE=clerk` and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in
+`mission-control-v2/.env.local`. Enabling it also needs a real domain in
+`convex/auth.config.ts`, which currently holds a placeholder.
+
+Both dashboards work today. v1 is the one with the most hours on it; v2 is the
+one to move to. Retiring v1 is tracked in issue #2.
 
 ---
 

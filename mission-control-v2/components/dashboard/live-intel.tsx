@@ -18,7 +18,7 @@ interface LiveIntelProps {
 }
 
 export function LiveIntel({ filter = "all", minimal = false }: LiveIntelProps) {
-    const activities = useQuery(api.activities.list) || [];
+    const activities = useQuery(api.activities.list, { limit: minimal ? 15 : 50 }) || [];
 
     const icons: Record<string, React.ReactElement> = {
         message_sent: <MessageSquare className="w-4 h-4 text-cyan-500" />,

@@ -32,7 +32,7 @@ export default function AgentDetailPage() {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const teams = useQuery(api.teams.list);
     const tasks = useQuery(api.tasks.list) || [];
-    const activities = useQuery(api.activities.list) || [];
+    const activities = useQuery(api.activities.list, { limit: 20 }) || [];
 
     if (!agent) {
         return (
