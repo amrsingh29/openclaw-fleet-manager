@@ -11,7 +11,9 @@ interface ActivityFeedProps {
 }
 
 export function ActivityFeed({ filter = 'all', minimal = false }: ActivityFeedProps) {
-    const activities = useQuery(api.activities.list) || [];
+    // activities.list now takes an optional limit; pass an explicit one so the
+    // sidebar feed stays a glance rather than an unbounded scan.
+    const activities = useQuery(api.activities.list, { limit: minimal ? 15 : 50 }) || [];
     const { theme } = useTheme();
 
     const icons: Record<string, React.ReactElement> = {

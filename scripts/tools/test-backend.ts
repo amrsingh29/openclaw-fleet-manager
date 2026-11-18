@@ -3,7 +3,7 @@
 //
 // Not production code. Named *.test-helper.ts and excluded from the build.
 
-import type { FleetBackend, AgentSummary, NewTask, ProposalRef } from "./backend.js";
+import type { FleetBackend, AgentSummary, NewTask, ProposalRef, DelegationContext } from "./backend.js";
 
 export type FakeRecorded = {
     tasks: NewTask[];
@@ -12,7 +12,12 @@ export type FakeRecorded = {
     results: { proposalId: string; ok: boolean; result: string }[];
 };
 
-export function fakeBackend(agents: AgentSummary[] = []): {
+export function fakeBackend(
+    agents: AgentSummary[] = [],
+    /** Override the delegation counts the tool will see. */
+    ctx: Partial<DelegationContext> = {},
+    approvedProposals: ProposalRef[] = [],
+): {
     backend: FleetBackend;
     recorded: FakeRecorded;
 } {
@@ -25,6 +30,13 @@ export function fakeBackend(agents: AgentSummary[] = []): {
         async createTask(task) {
             recorded.tasks.push(task);
             return `task_${recorded.tasks.length}`;
+        },
+        async delegationContext() {
+            return {
+                currentDepth: ctx.currentDepth ?? 0,
+                childCount: ctx.childCount ?? 0,
+                agentCreatesLastHour: ctx.agentCreatesLastHour ?? 0,
+            };
         },
         async logActivity(entry) {
             recorded.activities.push({ type: entry.type, message: entry.message });
@@ -39,7 +51,7 @@ export function fakeBackend(agents: AgentSummary[] = []): {
             return { proposalId: `proposal_${recorded.proposals.length}`, status: "pending" };
         },
         async listApprovedForAgent(): Promise<ProposalRef[]> {
-            return [];
+            return approvedProposals;
         },
         async markProposalResult(proposalId, ok, result) {
             recorded.results.push({ proposalId, ok, result });

@@ -8,7 +8,7 @@
 import * as dotenv from "dotenv";
 import { createProvider, ChatMessage, LlmProvider } from "./llm/index.js";
 import { ToolRegistry, defaultRegistry, WriteGate } from "./tools/registry.js";
-import { runTurn, ToolEvent } from "./agent-turn.js";
+import { runTurn, ToolEvent, TurnUsage } from "./agent-turn.js";
 import { policyDefaults, listServiceNames } from "./fleet-config.js";
 import type { FleetBackend } from "./tools/backend.js";
 
@@ -31,6 +31,12 @@ export class AgentBrain {
     private callbacks: BrainCallbacks;
     private backend?: FleetBackend;
     private agentId?: string;
+    /** Set while a mission is being executed, so delegation records its parent. */
+    private currentTaskId?: string;
+
+    setCurrentTask(taskId?: string): void {
+        this.currentTaskId = taskId;
+    }
 
     constructor(
         agentName: string,
@@ -106,7 +112,10 @@ export class AgentBrain {
      * Task execution. Full tool access, so an assigned mission can investigate
      * and act. Returns markdown, which is what the task card renders.
      */
-    async work(title: string, description: string): Promise<{ text: string; tools: ToolEvent[] }> {
+    async work(
+        title: string,
+        description: string,
+    ): Promise<{ text: string; tools: ToolEvent[]; usage: TurnUsage }> {
         try {
             const turn = await runTurn({
                 provider: this.provider,
@@ -117,14 +126,21 @@ export class AgentBrain {
                 gate: this.policyGate(),
                 agentName: this.agentName,
                 agentId: this.agentId,
+                taskId: this.currentTaskId,
                 backend: this.backend,
                 onToolEvent: this.callbacks.onToolEvent,
                 onNeedsApproval: this.callbacks.onNeedsApproval,
             });
-            return { text: turn.text, tools: turn.tools };
+            return { text: turn.text, tools: turn.tools, usage: turn.usage };
         } catch (err: any) {
             console.error("Brain Work Error:", err.message);
-            return { text: `[Brain Error]: ${err.message}`, tools: [] };
+            // A failed turn still burned tokens before it threw, but nothing
+            // was reported, so record zero rather than inventing a figure.
+            return {
+                text: `[Brain Error]: ${err.message}`,
+                tools: [],
+                usage: { inputTokens: 0, outputTokens: 0, rounds: 0 },
+            };
         }
     }
 

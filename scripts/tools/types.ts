@@ -18,6 +18,8 @@ export type ToolContext = {
     /** The agent making the call, so tools like create_task can attribute work. */
     agentName?: string;
     agentId?: string;
+    /** The mission being worked, so delegation can record its parent. */
+    taskId?: string;
     /** Mission Control access, for the few tools that need shared state. */
     backend?: import("./backend.js").FleetBackend;
 };

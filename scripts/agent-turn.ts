@@ -33,6 +33,8 @@ export type TurnOptions = {
     /** The calling agent, forwarded to tools that attribute work. */
     agentName?: string;
     agentId?: string;
+    /** The mission being worked, for delegation lineage. */
+    taskId?: string;
     /** Mission Control access, for tools that touch shared state (create_task). */
     backend?: FleetBackend;
     maxRounds?: number;
@@ -48,6 +50,14 @@ export type TurnOptions = {
     }) => void | Promise<void>;
 };
 
+/** What the provider charged for a turn, summed over every round. */
+export type TurnUsage = {
+    inputTokens: number;
+    outputTokens: number;
+    /** How many model calls this turn took, including the summary call. */
+    rounds: number;
+};
+
 export type TurnResult = {
     text: string;
     /** Every tool call made this turn, in order, for the audit trail. */
@@ -55,6 +65,14 @@ export type TurnResult = {
     /** Why the loop ended. "max_rounds" means the model kept asking for tools. */
     endedBecause: "answered" | "max_rounds" | "truncated" | "error";
     rounds: number;
+    /**
+     * Token spend for the whole turn.
+     *
+     * The providers report usage per response and every round is a separate
+     * response, so this has to be accumulated here. Dropping it (which is what
+     * this loop used to do) makes cost-per-task unrecoverable after the fact.
+     */
+    usage: TurnUsage;
 };
 
 export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
@@ -67,6 +85,15 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
     const events: ToolEvent[] = [];
     let rounds = 0;
 
+    // Accumulated across rounds: one model call per round, plus the summary.
+    const usage: TurnUsage = { inputTokens: 0, outputTokens: 0, rounds: 0 };
+
+    const addUsage = (u?: { inputTokens?: number; outputTokens?: number }): void => {
+        usage.rounds++;
+        usage.inputTokens += u?.inputTokens ?? 0;
+        usage.outputTokens += u?.outputTokens ?? 0;
+    };
+
     while (rounds < cap) {
         rounds++;
 
@@ -77,6 +104,7 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
             maxTokens: opts.maxTokens,
             temperature: opts.temperature,
         });
+        addUsage(res.usage);
 
         // No tool calls: this is the answer.
         if (!res.toolCalls.length) {
@@ -86,6 +114,7 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
                 tools: events,
                 endedBecause: res.stopReason === "length" ? "truncated" : "answered",
                 rounds,
+                usage,
             };
         }
 
@@ -100,6 +129,7 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
                 gate: opts.gate,
                 agentName: opts.agentName,
                 agentId: opts.agentId,
+                taskId: opts.taskId,
                 backend: opts.backend,
             });
             const elapsedMs = Date.now() - started;
@@ -136,6 +166,7 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
                 tools: events,
                 endedBecause: "answered",
                 rounds,
+                usage,
             };
         }
     }
@@ -156,12 +187,15 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
         tools: undefined,
         maxTokens: opts.maxTokens,
     });
+    // The summary is a real model call, so it counts toward the spend.
+    addUsage(summary.usage);
 
     return {
         text: summary.text.trim() || "Tool budget exhausted without a summary.",
         tools: events,
         endedBecause: "max_rounds",
         rounds,
+        usage,
     };
 }
 

@@ -9,6 +9,7 @@
 
 import { FleetTool, ToolArgumentError, ToolResult, requireString } from "./types.js";
 import { FleetBackend } from "./backend.js";
+import { delegationLimits } from "../fleet-config.js";
 
 export const createTask: FleetTool = {
     name: "create_task",
@@ -80,6 +81,58 @@ export const createTask: FleetTool = {
         const priority = args.priority as "low" | "medium" | "high";
         const requested = args.assignee as string | undefined;
 
+        // Limits are checked before anything is written, so a refused delegation
+        // leaves no trace in the board.
+        const limits = delegationLimits();
+        let ctxCounts;
+        try {
+            ctxCounts = await backend.delegationContext({
+                taskId: ctx.taskId,
+                agentId: ctx.agentId,
+            });
+        } catch {
+            // If the counts cannot be read, refuse rather than risk unbounded
+            // delegation. Failing closed is the right call for a loop guard.
+            return {
+                ok: false,
+                output:
+                    "Could not check delegation limits, so I will not create a task. " +
+                    "Report what you would have delegated instead.",
+            };
+        }
+
+        const myDepth = (ctxCounts.currentDepth ?? 0) + 1;
+        if (myDepth > limits.maxDepth) {
+            return {
+                ok: false,
+                output:
+                    `Delegation depth limit reached (${limits.maxDepth}). This mission is already ` +
+                    `${ctxCounts.currentDepth} hop(s) from the original request. ` +
+                    "Do not delegate further: either do the work with your own tools, or report " +
+                    "plainly what is blocked and why so a human can decide.",
+            };
+        }
+
+        if (ctxCounts.childCount >= limits.maxChildrenPerTask) {
+            return {
+                ok: false,
+                output:
+                    `This mission already has ${ctxCounts.childCount} sub-tasks, which is the limit ` +
+                    `(${limits.maxChildrenPerTask}). Do not split it further; report what you have ` +
+                    "and what remains.",
+            };
+        }
+
+        if (ctxCounts.agentCreatesLastHour >= limits.maxPerAgentPerHour) {
+            return {
+                ok: false,
+                output:
+                    `You have created ${ctxCounts.agentCreatesLastHour} tasks in the last hour, which is ` +
+                    `the limit (${limits.maxPerAgentPerHour}). Stop delegating and report. If the fleet is ` +
+                    "genuinely overloaded, say so; a human needs to widen the limits or add capacity.",
+            };
+        }
+
         const agents = await backend.listAgents();
 
         let assignee: { id: string; name: string; role: string; status: string } | undefined;
@@ -120,15 +173,19 @@ export const createTask: FleetTool = {
             priority,
             assigneeId: assignee?.id,
             createdByAgentId: ctx.agentId,
+            parentTaskId: ctx.taskId,
+            depth: myDepth,
         });
 
         await backend.logActivity({
             type: "task_delegated",
             agentId: ctx.agentId,
+            // The delegated task, so the child's whole history is one query.
+            taskId,
             message: assignee
                 ? `${ctx.agentName ?? "Agent"} assigned "${title}" to ${assignee.name}`
                 : `${ctx.agentName ?? "Agent"} filed "${title}" in the inbox`,
-            metadata: { taskId, assignee: assignee?.name, priority },
+            metadata: { assignee: assignee?.name, priority, depth: myDepth },
         });
 
         if (!assignee) {

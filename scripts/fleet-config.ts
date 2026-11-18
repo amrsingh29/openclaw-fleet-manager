@@ -71,6 +71,22 @@ export type FleetConfig = {
     scanAllowlist?: string[];
     /** How many tool-call round trips one task may make before it must answer. */
     maxToolRounds?: number;
+
+    delegation?: {
+        /**
+         * How deep a delegation chain may go. 0 means agents cannot delegate at
+         * all; 1 means one hop from a human-created task. This is the guard
+         * against a swarm re-delegating the same blocked problem forever.
+         */
+        maxDepth?: number;
+        /** How many child tasks one mission may spawn in total. */
+        maxChildrenPerTask?: number;
+        /** How many tasks one agent may create per hour, as a runaway brake. */
+        maxPerAgentPerHour?: number;
+    };
+
+    /** Lease applied when an agent claims a task. */
+    taskLeaseSeconds?: number;
 };
 
 const CONFIG_FILENAMES = ["fleet.yml", "fleet.yaml"];
@@ -189,6 +205,30 @@ export function maxToolRounds(): number {
     const configured = loadFleetConfig().maxToolRounds;
     const n = Number.isFinite(configured) ? Number(configured) : 6;
     return Math.max(1, Math.min(20, n));
+}
+
+/** Delegation limits, with defaults that stop a loop without being annoying. */
+export function delegationLimits(): Required<NonNullable<FleetConfig["delegation"]>> {
+    const d = loadFleetConfig().delegation ?? {};
+    const clamp = (n: unknown, min: number, max: number, dflt: number) => {
+        const v = Number(n);
+        return Number.isFinite(v) ? Math.max(min, Math.min(max, Math.floor(v))) : dflt;
+    };
+    return {
+        // 2 is enough for a commander -> specialist -> sub-specialist chain, which
+        // is the useful case; beyond that it is almost always a loop.
+        maxDepth: clamp(d.maxDepth, 0, 10, 2),
+        maxChildrenPerTask: clamp(d.maxChildrenPerTask, 0, 50, 4),
+        maxPerAgentPerHour: clamp(d.maxPerAgentPerHour, 1, 200, 20),
+    };
+}
+
+/** How long a claimed task stays reserved before another agent may take it. */
+export function taskLeaseSeconds(): number {
+    const v = Number(loadFleetConfig().taskLeaseSeconds);
+    // Default 10 minutes: long enough for a real mission with several tool rounds,
+    // short enough that a crashed runner does not strand work for an hour.
+    return Number.isFinite(v) ? Math.max(30, Math.min(3600, v)) : 600;
 }
 
 export function policyDefaults(): Required<PolicyDefaults> {

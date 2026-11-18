@@ -24,6 +24,19 @@ export type NewTask = {
     teamId?: string;
     /** Who asked for this, for the audit trail. */
     createdByAgentId?: string;
+    /** Lineage, so delegation depth can be enforced and the chain read back. */
+    parentTaskId?: string;
+    depth?: number;
+};
+
+/** Lineage facts the tool needs before it may delegate. */
+export type DelegationContext = {
+    /** Depth of the task currently being worked. 0 for human-created. */
+    currentDepth: number;
+    /** How many tasks the current mission has already spawned. */
+    childCount: number;
+    /** How many tasks this agent has created in the last hour. */
+    agentCreatesLastHour: number;
 };
 
 export type ProposalRef = {
@@ -39,11 +52,15 @@ export interface FleetBackend {
     listAgents(): Promise<AgentSummary[]>;
     /** Creates a task. Returns its id. */
     createTask(task: NewTask): Promise<string>;
+    /** Counts used to enforce delegation limits before a task is created. */
+    delegationContext(args: { taskId?: string; agentId?: string }): Promise<DelegationContext>;
     /** Writes an activity row. Best-effort: callers must not fail a mission on it. */
     logActivity(entry: {
         type: string;
         message: string;
         agentId?: string;
+        /** Which mission this event belongs to, so activity is queryable by task. */
+        taskId?: string;
         metadata?: Record<string, unknown>;
     }): Promise<void>;
 

@@ -51,6 +51,8 @@ export type ExecuteOptions = {
     /** The calling agent, for tools that attribute work (create_task). */
     agentName?: string;
     agentId?: string;
+    /** The mission being worked, so delegation can record lineage. */
+    taskId?: string;
     /** Mission Control access, for tools that touch shared state. */
     backend?: FleetBackend;
 };
@@ -125,6 +127,7 @@ export class ToolRegistry {
             approved: opts.approved,
             agentName: opts.agentName,
             agentId: opts.agentId,
+            taskId: opts.taskId,
             backend: opts.backend,
         };
 

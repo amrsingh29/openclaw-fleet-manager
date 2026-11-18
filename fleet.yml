@@ -70,3 +70,19 @@ policies:
 # Tool-call round trips one task may make before it must answer. Raise this for
 # genuinely investigative missions, lower it if a model loops.
 maxToolRounds: 6
+
+# How long a claimed task stays reserved. A runner that dies mid-mission would
+# otherwise leave the card in_progress forever. After this, the task returns to
+# the inbox, and after 3 abandoned attempts it is parked as blocked for a human.
+taskLeaseSeconds: 600
+
+# Delegation limits. These exist because a chain of agents re-delegating the same
+# blocked problem can turn one mission into dozens.
+delegation:
+  # Hops from the human's original request. 2 allows commander -> specialist ->
+  # sub-specialist, which is the useful case; beyond that it is almost always a loop.
+  maxDepth: 2
+  # Sub-tasks one mission may spawn in total.
+  maxChildrenPerTask: 4
+  # Runaway brake: tasks one agent may create per hour.
+  maxPerAgentPerHour: 20

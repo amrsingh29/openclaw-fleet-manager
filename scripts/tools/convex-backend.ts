@@ -6,7 +6,7 @@
 
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
-import type { FleetBackend, AgentSummary, NewTask, ProposalRef } from "./backend.js";
+import type { FleetBackend, AgentSummary, NewTask, ProposalRef, DelegationContext } from "./backend.js";
 
 export class ConvexBackend implements FleetBackend {
     constructor(private client: ConvexHttpClient) {}
@@ -33,6 +33,9 @@ export class ConvexBackend implements FleetBackend {
             // Only include teamId when set: the generated arg type wants a real
             // Id<"teams">, and passing undefined explicitly fails its validator.
             ...(task.teamId ? { teamId: task.teamId as any } : {}),
+            ...(task.parentTaskId ? { parentTaskId: task.parentTaskId as any } : {}),
+            ...(task.createdByAgentId ? { createdByAgentId: task.createdByAgentId as any } : {}),
+            depth: task.depth ?? 0,
             status: task.assigneeId ? "assigned" : "inbox",
         });
 
@@ -53,6 +56,7 @@ export class ConvexBackend implements FleetBackend {
         type: string;
         message: string;
         agentId?: string;
+        taskId?: string;
         metadata?: Record<string, unknown>;
     }): Promise<void> {
         try {
@@ -60,11 +64,19 @@ export class ConvexBackend implements FleetBackend {
                 type: entry.type,
                 message: entry.message,
                 ...(entry.agentId ? { agentId: entry.agentId as any } : {}),
+                ...(entry.taskId ? { taskId: entry.taskId as any } : {}),
                 ...(entry.metadata ? { metadata: entry.metadata } : {}),
             });
         } catch {
             // Audit is best-effort: losing a log line must not fail the mission.
         }
+    }
+
+    async delegationContext(args: { taskId?: string; agentId?: string }): Promise<DelegationContext> {
+        return (await this.client.query(api.tasks.delegationContext, {
+            ...(args.taskId ? { taskId: args.taskId as any } : {}),
+            ...(args.agentId ? { agentId: args.agentId as any } : {}),
+        })) as DelegationContext;
     }
 
     async createProposal(proposal: {

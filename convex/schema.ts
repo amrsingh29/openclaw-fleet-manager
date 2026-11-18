@@ -34,7 +34,42 @@ export default defineSchema({
         createdTime: v.number(),
         lastUpdated: v.number(),
         output: v.optional(v.string()),
-    }),
+
+        // --- delegation lineage -------------------------------------------------
+        // A chain of agents re-delegating the same problem is the failure mode
+        // that turned one mission into 45. Depth and parent let the tool refuse
+        // before the swarm grows, and make the board readable afterwards.
+        parentTaskId: v.optional(v.id("tasks")),
+        depth: v.optional(v.number()), // 0 for a human-created task
+        createdByAgentId: v.optional(v.id("agents")),
+
+        // --- lease --------------------------------------------------------------
+        // A runner that dies mid-mission used to leave the card in_progress
+        // forever with nothing to show for it. The lease is what makes an
+        // abandoned claim recoverable.
+        claimedAt: v.optional(v.number()),
+        leaseExpiresAt: v.optional(v.number()),
+        /** How many times this task has been reclaimed after a dead lease. */
+        attempts: v.optional(v.number()),
+
+        // --- completion -------------------------------------------------------
+        // lastUpdated moves on every status change, including ones that happen
+        // after the work is finished, so it cannot answer "how long did this
+        // take". completedAt is written once and never touched again.
+        completedAt: v.optional(v.number()),
+        /** Which agent actually finished it, which need not be the claimer. */
+        completedByAgentId: v.optional(v.id("agents")),
+        /** Model usage for the mission, summed across every round of the turn. */
+        usage: v.optional(
+            v.object({
+                inputTokens: v.optional(v.number()),
+                outputTokens: v.optional(v.number()),
+                rounds: v.optional(v.number()),
+            }),
+        ),
+    })
+        .index("by_org_created", ["orgId", "createdTime"])
+        .index("by_org_status", ["orgId", "status"]),
     messages: defineTable({
         channelId: v.string(), // "general", "task-<ID>"
         taskId: v.optional(v.id("tasks")), // Optional link to a specific task
@@ -50,8 +85,14 @@ export default defineSchema({
         message: v.string(),
         orgId: v.optional(v.string()), // <--- Multi-tenancy
         timestamp: v.number(),
+        // Promoted out of metadata: analytics needs "everything that happened on
+        // this mission", and a JSON field cannot be indexed.
+        taskId: v.optional(v.id("tasks")),
         metadata: v.optional(v.any()),
-    }),
+    })
+        // Every analytics aggregate is a time-bounded scan within one org.
+        .index("by_org_timestamp", ["orgId", "timestamp"])
+        .index("by_task", ["taskId"]),
     documents: defineTable({
         title: v.string(),
         content: v.string(),
@@ -101,6 +142,8 @@ export default defineSchema({
         /** Set when a human approved or denied it. */
         decidedAt: v.optional(v.number()),
         decidedBy: v.optional(v.string()),
+        /** Set when the runner actually ran the approved action. */
+        executedAt: v.optional(v.number()),
         /** Result text from the execution, for the audit trail. */
         result: v.optional(v.string()),
         cost: v.optional(v.number()),

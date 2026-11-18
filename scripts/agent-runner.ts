@@ -10,7 +10,7 @@ import { AgentBrain, BrainCallbacks } from "./openclaw_brain.js";
 import { ToolEvent } from "./agent-turn.js";
 import { defaultRegistry } from "./tools/registry.js";
 import { ConvexBackend } from "./tools/convex-backend.js";
-import { listServiceNames } from "./fleet-config.js";
+import { listServiceNames, taskLeaseSeconds } from "./fleet-config.js";
 
 dotenv.config({ path: ".env" });
 dotenv.config({ path: ".env.local" });
@@ -125,12 +125,13 @@ async function logToolEvents(agentId: any, taskId: string | null): Promise<void>
                 agentId,
                 type: "tool_call",
                 message: `${AGENT_NAME} ran ${e.tool}${e.result.ok ? "" : " (failed)"}`,
+                // A column now, not a metadata field: analytics joins on it.
+                ...(taskId ? { taskId: taskId as any } : {}),
                 metadata: {
                     tool: e.tool,
                     args: e.args,
                     ok: e.result.ok,
                     elapsedMs: e.elapsedMs,
-                    taskId,
                     output: e.result.output.slice(0, 500),
                 },
             });
@@ -163,17 +164,39 @@ async function processTasks(agentId: any): Promise<void> {
 
         console.log(`🚀 Mission: ${mine.title}`);
         currentTaskId = mine._id;
+        getBrain().setCurrentTask(mine._id);
+
+        // Keep the lease alive while we work, so a long mission is not reclaimed
+        // mid-flight by another runner.
+        const leaseSeconds = taskLeaseSeconds();
+        const leaseTimer = setInterval(() => {
+            client
+                .mutation(api.tasks.renewLease, {
+                    taskId: mine._id,
+                    agentId,
+                    leaseSeconds,
+                })
+                .catch(() => {
+                    /* a lost renewal is not fatal; reclaim will handle it */
+                });
+        }, Math.max(30_000, (leaseSeconds * 1000) / 2));
         await client.mutation(api.agents.updateStatus, { id: agentId, status: "working" });
 
         try {
-            const { text, tools } = await getBrain().work(mine.title, mine.description);
+            const { text, tools, usage } = await getBrain().work(mine.title, mine.description);
             const summary = summariseTools(tools);
-            console.log(`✅ Done: ${text.split("\n")[0].slice(0, 120)}`);
+            console.log(
+                `✅ Done: ${text.split("\n")[0].slice(0, 120)}` +
+                    (usage.rounds ? ` [${usage.inputTokens}+${usage.outputTokens} tok, ${usage.rounds} round(s)]` : ""),
+            );
 
             await client.mutation(api.tasks.complete, {
                 taskId: mine._id,
                 agentId,
                 output: summary ? `${text}\n\n---\n**Tools used**\n${summary}` : text,
+                // Only send it when the provider actually reported something, so
+                // a gateway that omits usage does not record a fake zero.
+                ...(usage.rounds ? { usage } : {}),
             });
             await client.mutation(api.tasks.updateStatus, { id: mine._id, status: "done" });
             await logToolEvents(agentId, mine._id);
@@ -187,7 +210,9 @@ async function processTasks(agentId: any): Promise<void> {
             await client.mutation(api.tasks.updateStatus, { id: mine._id, status: "review" });
             await logToolEvents(agentId, mine._id);
         } finally {
+            clearInterval(leaseTimer);
             currentTaskId = null;
+            brain?.setCurrentTask(undefined);
             await client.mutation(api.agents.updateStatus, { id: agentId, status: "idle" });
         }
         return;
@@ -196,7 +221,11 @@ async function processTasks(agentId: any): Promise<void> {
     // Nothing of mine: try to claim unowned work.
     const inboxTask = tasks.find((t: any) => t.status === "inbox" && !t.assigneeIds?.length);
     if (inboxTask) {
-        const claimed = await client.mutation(api.tasks.claim, { taskId: inboxTask._id, agentId });
+        const claimed = await client.mutation(api.tasks.claim, {
+            taskId: inboxTask._id,
+            agentId,
+            leaseSeconds: taskLeaseSeconds(),
+        });
         if (claimed) console.log(`👀 Claimed: ${inboxTask.title}`);
     }
 }
@@ -314,6 +343,20 @@ async function main(): Promise<void> {
     }, HEARTBEAT_INTERVAL_MS);
 
     const loop = async () => {
+        try {
+            // Only one runner needs to sweep, but they all do it because it is
+            // idempotent and a single-point sweeper is a single point of failure.
+            const res = await client.mutation(api.tasks.reclaimExpired, {});
+            const r = res as { reclaimed: string[]; givenUp: string[] };
+            if (r.reclaimed.length || r.givenUp.length) {
+                console.log(
+                    `♻️  Reclaimed ${r.reclaimed.length} abandoned task(s)` +
+                        (r.givenUp.length ? `, parked ${r.givenUp.length} as blocked` : ""),
+                );
+            }
+        } catch (e: any) {
+            console.error("Reclaim error:", e?.message ?? e);
+        }
         try {
             await processTasks(agentId);
         } catch (e: any) {
