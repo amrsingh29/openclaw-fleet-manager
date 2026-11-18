@@ -7,6 +7,7 @@ import { ActivityFeed } from './ActivityFeed';
 import { TaskBoard } from './TaskBoard';
 import { TaskTable } from './TaskTable';
 import { FleetStatusBoard } from './FleetStatusBoard';
+import { ProposalsPanel } from './ProposalsPanel';
 import { LayoutGrid, List, Filter, Activity, Users, Plus, PanelRightClose, PanelRightOpen } from 'lucide-react';
 
 interface CommandCenterProps {
@@ -26,7 +27,7 @@ export function CommandCenter({ onTaskClick, onNewMission }: CommandCenterProps)
     const [viewMode, setViewMode] = useState<'board' | 'table'>('board');
     const [agentFilter, setAgentFilter] = useState<'all' | 'working' | 'offline'>('all');
     const [logFilter, setLogFilter] = useState<'all' | 'system' | 'agent-work' | 'chat'>('all');
-    const [isIntelCollapsed, setIsIntelCollapsed] = useState(true);
+    const [isIntelCollapsed, setIsIntelCollapsed] = useState(false);
 
     // Filter Logic
     const filteredAgents = agents.filter((a: any) => {
@@ -156,15 +157,22 @@ export function CommandCenter({ onTaskClick, onNewMission }: CommandCenterProps)
                             </div>
                         </>
                     ) : (
-                        <button onClick={() => setIsIntelCollapsed(false)} className="p-2 hover:bg-white/10 rounded" title="Show Live Intel">
-                            <PanelRightOpen className="w-5 h-5 text-cyan-500" />
-                        </button>
+                        <>
+                            <button onClick={() => setIsIntelCollapsed(false)} className="p-2 hover:bg-white/10 rounded" title="Show Live Intel">
+                                <PanelRightOpen className="w-5 h-5 text-cyan-500" />
+                            </button>
+                            <ProposalsPanel />
+                        </>
                     )}
                 </div>
 
                 {!isIntelCollapsed && (
-                    <div className="flex-1 overflow-hidden relative p-4">
-                        <ActivityFeed minimal filter={logFilter} />
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 gap-3">
+                        <ProposalsPanel expanded />
+                        <div className={`flex-1 min-h-0 overflow-hidden border-t pt-3
+                            ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+                            <ActivityFeed minimal filter={logFilter} />
+                        </div>
                     </div>
                 )}
             </div>

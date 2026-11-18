@@ -53,10 +53,14 @@ if (!CONVEX_URL) {
 }
 
 const client = new ConvexHttpClient(CONVEX_URL);
+const backend = new ConvexBackend(client);
 
 // ---- brain ------------------------------------------------------------------
 
 const toolEvents: ToolEvent[] = [];
+
+/** The mission currently being worked, so a proposal can be traced to it. */
+let currentTaskId: string | null = null;
 
 const callbacks: BrainCallbacks = {
     onToolEvent: async (e) => {
@@ -67,7 +71,29 @@ const callbacks: BrainCallbacks = {
         if (!e.result.ok) console.log(`      ${e.result.output.split("\n")[0]}`);
     },
     onNeedsApproval: async (info) => {
-        console.log(`  ⏸️  Needs approval: ${info.tool} — ${info.reason.split("\n")[0]}`);
+        // This is what turns "blocked by policy" into "waiting for a human".
+        // Without it the refusal was local to this process and never reached the
+        // dashboard, so nothing could be approved.
+        if (!agentIdRef) {
+            console.log(`  ⏸️  Needs approval (not recorded, no agent id yet): ${info.tool}`);
+            return;
+        }
+        try {
+            const { proposalId, status } = await backend.createProposal({
+                agentId: agentIdRef,
+                action: info.tool,
+                params: info.args,
+                rationale: info.reason,
+                ...(currentTaskId ? { taskId: currentTaskId } : {}),
+            });
+            console.log(
+                status === "auto_approved"
+                    ? `  ✅ Policy auto-approved ${info.tool} (proposal ${proposalId}) — will run on the next tick`
+                    : `  ⏸️  Proposal raised for ${info.tool} (${proposalId}) — waiting for the commander`,
+            );
+        } catch (err: any) {
+            console.log(`  ⚠️  Could not raise proposal for ${info.tool}: ${err.message}`);
+        }
     },
 };
 
@@ -136,6 +162,7 @@ async function processTasks(agentId: any): Promise<void> {
         }
 
         console.log(`🚀 Mission: ${mine.title}`);
+        currentTaskId = mine._id;
         await client.mutation(api.agents.updateStatus, { id: agentId, status: "working" });
 
         try {
@@ -160,6 +187,7 @@ async function processTasks(agentId: any): Promise<void> {
             await client.mutation(api.tasks.updateStatus, { id: mine._id, status: "review" });
             await logToolEvents(agentId, mine._id);
         } finally {
+            currentTaskId = null;
             await client.mutation(api.agents.updateStatus, { id: agentId, status: "idle" });
         }
         return;
@@ -178,6 +206,46 @@ function summariseTools(tools: ToolEvent[]): string {
     return tools
         .map((t) => `- \`${t.tool}\` ${JSON.stringify(t.args)} → ${t.result.ok ? "ok" : "failed"} (${t.elapsedMs}ms)`)
         .join("\n");
+}
+
+// ---- approved proposals -----------------------------------------------------
+
+/**
+ * Executes actions a human has approved.
+ *
+ * This is the other half of the approval loop. The action is replayed from the
+ * stored args rather than by asking the model again, so what ran is exactly what
+ * the commander saw and approved. Executed proposals are marked so they are never
+ * re-run on a later poll.
+ */
+async function processApprovedProposals(agentId: any): Promise<void> {
+    const approved = await backend.listApprovedForAgent(agentId);
+    if (!approved.length) return;
+
+    for (const proposal of approved) {
+        console.log(`✅ Executing approved action: ${proposal.action}(${JSON.stringify(proposal.params)})`);
+
+        const result = await defaultRegistry.execute(proposal.action, proposal.params, {
+            callId: `approved_${proposal.id}`,
+            // approved: true is the whole point — a human already said yes.
+            approved: true,
+            agentName: AGENT_NAME,
+            agentId,
+            backend,
+        });
+
+        const summary = result.ok
+            ? result.output.split("\n").slice(0, 3).join("\n")
+            : `Failed: ${result.output.split("\n")[0]}`;
+
+        console.log(`   ${result.ok ? "ok" : "FAILED"} — ${summary.split("\n")[0]}`);
+
+        try {
+            await backend.markProposalResult(proposal.id, result.ok, result.output);
+        } catch (err: any) {
+            console.error("Could not record proposal result:", err.message);
+        }
+    }
 }
 
 // ---- chat loop --------------------------------------------------------------
@@ -250,6 +318,11 @@ async function main(): Promise<void> {
             await processTasks(agentId);
         } catch (e: any) {
             console.error("Task loop error:", e?.message ?? e);
+        }
+        try {
+            await processApprovedProposals(agentId);
+        } catch (e: any) {
+            console.error("Proposal loop error:", e?.message ?? e);
         }
         try {
             await processChat(agentId);

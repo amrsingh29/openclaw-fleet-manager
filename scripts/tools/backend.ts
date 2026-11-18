@@ -26,6 +26,14 @@ export type NewTask = {
     createdByAgentId?: string;
 };
 
+export type ProposalRef = {
+    id: string;
+    action: string;
+    params: Record<string, unknown>;
+    rationale: string;
+    taskId?: string;
+};
+
 export interface FleetBackend {
     /** Every agent in the caller's org, so delegation can resolve a name to an id. */
     listAgents(): Promise<AgentSummary[]>;
@@ -38,4 +46,21 @@ export interface FleetBackend {
         agentId?: string;
         metadata?: Record<string, unknown>;
     }): Promise<void>;
+
+    // ---- approval loop ----
+
+    /** Raises a proposal for an action the policy would not allow immediately. */
+    createProposal(proposal: {
+        agentId: string;
+        action: string;
+        params: Record<string, unknown>;
+        rationale: string;
+        taskId?: string;
+    }): Promise<{ proposalId: string; status: "pending" | "auto_approved" }>;
+
+    /** Proposals a human has approved that this agent has not run yet. */
+    listApprovedForAgent(agentId: string): Promise<ProposalRef[]>;
+
+    /** Records the outcome of executing an approved proposal. */
+    markProposalResult(proposalId: string, ok: boolean, result: string): Promise<void>;
 }

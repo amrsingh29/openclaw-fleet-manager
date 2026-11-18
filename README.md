@@ -148,6 +148,27 @@ or deny. `manual` refuses outright.
 The default is `propose_only` for anything mutating. An LLM with unconditional restart
 rights on someone's laptop is not something to ship turned on.
 
+### The approval loop
+
+When policy blocks an action, the agent does not just give up. It records a proposal
+carrying the exact arguments it wanted to run, and the action appears in the **Approvals**
+panel on the dashboard.
+
+Approve it and the agent's runner executes precisely what the panel showed, replayed from
+the stored arguments rather than a fresh attempt by the model. What ran is what you approved.
+The outcome (`executed` or `failed`, with the real error) is recorded against the proposal
+and shown in history. Nothing is retried after that. A failed restart is something a human should look at, not
+something a loop should keep attempting.
+
+Two details that matter in practice:
+
+- Identical proposals from the same agent and mission are deduped, so a model that retries
+  a refused action cannot fill the queue with the same card.
+- Approving twice is refused rather than silently re-running the action.
+
+`manual` is stricter: it refuses outright and raises nothing, for actions you never want
+queued no matter who is watching.
+
 The `policies` table in Convex can override these per team once you pass org and team
 context through the runner. `fleet.yml` is the floor.
 

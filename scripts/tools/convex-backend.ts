@@ -6,7 +6,7 @@
 
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
-import type { FleetBackend, AgentSummary, NewTask } from "./backend.js";
+import type { FleetBackend, AgentSummary, NewTask, ProposalRef } from "./backend.js";
 
 export class ConvexBackend implements FleetBackend {
     constructor(private client: ConvexHttpClient) {}
@@ -65,5 +65,43 @@ export class ConvexBackend implements FleetBackend {
         } catch {
             // Audit is best-effort: losing a log line must not fail the mission.
         }
+    }
+
+    async createProposal(proposal: {
+        agentId: string;
+        action: string;
+        params: Record<string, unknown>;
+        rationale: string;
+        taskId?: string;
+    }): Promise<{ proposalId: string; status: "pending" | "auto_approved" }> {
+        const res = await this.client.mutation(api.proposals.createProposal, {
+            agentId: proposal.agentId as any,
+            action: proposal.action,
+            params: proposal.params,
+            rationale: proposal.rationale,
+            ...(proposal.taskId ? { taskId: proposal.taskId as any } : {}),
+        });
+        return res as { proposalId: string; status: "pending" | "auto_approved" };
+    }
+
+    async listApprovedForAgent(agentId: string): Promise<ProposalRef[]> {
+        const rows = await this.client.query(api.proposals.listApprovedForAgent, {
+            agentId: agentId as any,
+        });
+        return (rows as any[]).map((p) => ({
+            id: p._id,
+            action: p.action,
+            params: p.params ?? {},
+            rationale: p.rationale,
+            taskId: p.taskId,
+        }));
+    }
+
+    async markProposalResult(proposalId: string, ok: boolean, result: string): Promise<void> {
+        await this.client.mutation(api.proposals.markResult, {
+            proposalId: proposalId as any,
+            ok,
+            result,
+        });
     }
 }

@@ -5,26 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ToolRegistry } from "./registry.js";
-import type { FleetBackend, AgentSummary, NewTask } from "./backend.js";
-
-type Recorded = { tasks: NewTask[]; activities: { type: string; message: string }[] };
-
-function fakeBackend(agents: AgentSummary[]): { backend: FleetBackend; recorded: Recorded } {
-    const recorded: Recorded = { tasks: [], activities: [] };
-    const backend: FleetBackend = {
-        async listAgents() {
-            return agents;
-        },
-        async createTask(task) {
-            recorded.tasks.push(task);
-            return `task_${recorded.tasks.length}`;
-        },
-        async logActivity(entry) {
-            recorded.activities.push({ type: entry.type, message: entry.message });
-        },
-    };
-    return { backend, recorded };
-}
+import type { AgentSummary } from "./backend.js";
+import { fakeBackend } from "./test-backend.js";
 
 const ROSTER: AgentSummary[] = [
     { id: "a1", name: "Jarvis", role: "Incident Commander", status: "active" },

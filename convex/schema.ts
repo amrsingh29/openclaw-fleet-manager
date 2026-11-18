@@ -78,17 +78,37 @@ export default defineSchema({
     }).index("by_org_and_name", ["orgId", "keyName"]),
 
     proposals: defineTable({
-        taskId: v.id("tasks"),
+        // Optional: an agent can raise an approval from chat, where no mission
+        // exists. Requiring a taskId meant chat-initiated proposals were
+        // impossible to record at all.
+        taskId: v.optional(v.id("tasks")),
         agentId: v.id("agents"),
-        action: v.string(), // e.g. "execute_command", "read_file"
-        params: v.any(),
+        action: v.string(), // the tool name, e.g. "restart_service"
+        params: v.any(), // the validated arguments, so the action is replayable
         rationale: v.string(), // Why the agent wants to do this
-        status: v.union(v.literal("pending"), v.literal("approved"), v.literal("denied"), v.literal("auto_approved")),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("approved"),
+            v.literal("denied"),
+            v.literal("auto_approved"),
+            // Set once the approved action has actually been executed, so an
+            // approved proposal is not silently re-run by a later poll.
+            v.literal("executed"),
+            v.literal("failed"),
+        ),
         orgId: v.string(),
         timestamp: v.number(),
+        /** Set when a human approved or denied it. */
+        decidedAt: v.optional(v.number()),
+        decidedBy: v.optional(v.string()),
+        /** Result text from the execution, for the audit trail. */
+        result: v.optional(v.string()),
         cost: v.optional(v.number()),
         confidence: v.optional(v.number()),
-    }).index("by_org_status", ["orgId", "status"]),
+    })
+        .index("by_org_status", ["orgId", "status"])
+        // The runner needs "what has a human approved that I have not run yet".
+        .index("by_org_agent_status", ["orgId", "agentId", "status"]),
 
     policies: defineTable({
         orgId: v.string(),
