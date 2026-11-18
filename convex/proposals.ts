@@ -66,11 +66,12 @@ export const createProposal = mutation({
             agentId: args.agentId,
             orgId,
             timestamp: Date.now(),
+            taskId: args.taskId,
             message:
                 status === "auto_approved"
                     ? `Agent may execute ${args.action} (policy auto)`
                     : `Agent needs approval for ${args.action}`,
-            metadata: { proposalId, taskId: args.taskId },
+            metadata: { proposalId, action: args.action, decision: status },
         });
 
         return { proposalId, status };
@@ -167,8 +168,14 @@ export const approve = mutation({
             agentId: proposal.agentId,
             orgId,
             timestamp: Date.now(),
+            taskId: proposal.taskId,
             message: `Commander approved ${proposal.action}`,
-            metadata: { proposalId: args.proposalId, taskId: proposal.taskId },
+            metadata: {
+                proposalId: args.proposalId,
+                action: proposal.action,
+                // How long the human took. The funnel metric nobody can fake.
+                waitMs: Date.now() - proposal.timestamp,
+            },
         });
     },
 });
@@ -197,8 +204,14 @@ export const deny = mutation({
             agentId: proposal.agentId,
             orgId,
             timestamp: Date.now(),
+            taskId: proposal.taskId,
             message: `Commander denied ${proposal.action}${args.reason ? `. Reason: ${args.reason}` : ""}`,
-            metadata: { proposalId: args.proposalId, taskId: proposal.taskId },
+            metadata: {
+                proposalId: args.proposalId,
+                action: proposal.action,
+                waitMs: Date.now() - proposal.timestamp,
+                reason: args.reason,
+            },
         });
     },
 });
@@ -220,23 +233,34 @@ export const markResult = mutation({
             throw new Error("Proposal not found or access denied");
         }
 
+        const now = Date.now();
         await ctx.db.patch(args.proposalId, {
             // "executed" even on failure: the point is that it will not be retried
             // forever. A failed restart is something a human should look at, not
             // something the runner should keep trying.
             status: args.ok ? "executed" : "failed",
             result: args.result.slice(0, 2000),
+            // Approval-to-execution lag: measures the loop, not the wait for a
+            // human, so keep it separate from the decision latency above.
+            executedAt: now,
         });
 
         await ctx.db.insert("activities", {
             type: args.ok ? "proposal_executed" : "proposal_failed",
             agentId: proposal.agentId,
             orgId: proposal.orgId,
-            timestamp: Date.now(),
+            timestamp: now,
+            taskId: proposal.taskId,
             message: args.ok
                 ? `Executed approved action: ${proposal.action}`
                 : `Approved action failed: ${proposal.action}`,
-            metadata: { proposalId: args.proposalId, result: args.result.slice(0, 500) },
+            metadata: {
+                proposalId: args.proposalId,
+                action: proposal.action,
+                ok: args.ok,
+                result: args.result.slice(0, 500),
+                ...(proposal.decidedAt ? { execLagMs: now - proposal.decidedAt } : {}),
+            },
         });
     },
 });

@@ -311,9 +311,11 @@ The Next.js rewrite in `mission-control-v2/` has its own drifted copy of the Con
 
 ## Status
 
-Working: real tools against local, ssh and docker targets; the policy gate and approval loop end to end; delegation with roster resolution; War Room with per-agent silence; the Kanban pipeline. Verified by running it: a gated `restart_service` raised a proposal, approval replayed the stored arguments, the container restarted, and the result came back marked `executed`.
+Working: real tools against local, ssh and docker targets; the policy gate and approval loop end to end; delegation with roster resolution; War Room with per-agent silence; the Kanban pipeline; the analytics view. Verified by running it: a gated `restart_service` raised a proposal, approval replayed the stored arguments, the container restarted, and the result came back marked `executed`.
 
-Known rough edges: the Kanban needs a wide viewport (below roughly 1400 px the lanes scroll horizontally); `npm run build` in `mission-control-dashboard` still carries type errors while `npm run dev` is unaffected; v2 is unsupported.
+The analytics view reports what the fleet did over a chosen window. Every figure comes from rows the agents already write, and where the data cannot answer a question the panel says so instead of showing a zero. Plan and data-model notes are in [docs/ANALYTICS_PLAN.md](docs/ANALYTICS_PLAN.md).
+
+Known rough edges: the Kanban needs a wide viewport (below roughly 1400 px the lanes scroll horizontally); `mission-control-dashboard` builds clean via `npm run build`, but the bundle is ~683 kB and trips Vite's size warning; v2 is unsupported.
 
 ---
 
