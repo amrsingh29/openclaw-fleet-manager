@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
 import { Maximize2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { markdownToPlainText } from '../lib/text';
+import { markdownToPlainText, markdownToOneLine } from '../lib/text';
 
 interface TaskBoardProps {
     tasks: any[];
@@ -109,7 +109,7 @@ function TaskCard({ task, agents, onClick }: { task: any, agents: any[], onClick
             layoutId={task._id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            title={preview || task.title}
+            title={preview ? markdownToOneLine(task.output, 300) : task.title}
             className={`p-3 rounded-lg border shadow-sm cursor-pointer active:cursor-grabbing group hover:shadow-md transition-all duration-200
                 ${theme === 'dark'
                     ? 'bg-[#1e293b] border-white/10 hover:border-cyan-500/50'

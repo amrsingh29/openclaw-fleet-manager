@@ -99,7 +99,7 @@ export function MissionDetailModal({ task, isOpen, onClose, agents }: MissionDet
                         </div>
                         <div className="flex-1 min-w-0 pt-0.5">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50 mb-3">Mission Directives</h3>
-                            <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5">
+                            <div className="p-5 rounded-xl bg-secondary/30 border border-border">
                                 <MarkdownRenderer content={task.description || ""} className="text-foreground/80" />
                             </div>
                         </div>
@@ -113,8 +113,8 @@ export function MissionDetailModal({ task, isOpen, onClose, agents }: MissionDet
                             </div>
                             <div className="flex-1 min-w-0 pt-0.5">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50 mb-3">Tactical Result</h3>
-                                <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden shadow-xl ring-1 ring-white/5">
-                                    <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5">
+                                    <div className="px-4 py-2 border-b border-border bg-secondary/40 flex justify-between items-center">
                                         <div className="flex gap-1.5 opacity-30">
                                             <div className="w-2 h-2 rounded-full bg-slate-500" />
                                             <div className="w-2 h-2 rounded-full bg-slate-500" />

@@ -20,7 +20,7 @@ import { useState } from "react";
 import { AssignTaskModal } from "./assign-task-modal";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import { markdownToPlainText } from "@/lib/text";
+import { markdownToPlainText, markdownToOneLine } from "@/lib/text";
 
 interface TaskBoardProps {
     tasks: any[];
@@ -184,7 +184,7 @@ function TaskCard({
             layoutId={task._id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            title={preview || task.title}
+            title={preview ? markdownToOneLine(task.output, 300) : task.title}
             className="p-3 rounded-lg border border-border bg-card shadow-sm cursor-pointer active:cursor-grabbing group hover:shadow-md hover:border-primary/50 transition-all duration-200"
         >
             <div className="flex justify-between items-start mb-2 gap-1">

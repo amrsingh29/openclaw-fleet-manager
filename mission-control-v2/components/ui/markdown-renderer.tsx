@@ -39,8 +39,8 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
     return (
         <div className={cn(
             "prose prose-sm dark:prose-invert max-w-none break-words [overflow-wrap:anywhere]",
-            "prose-pre:bg-slate-900 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl",
-            "prose-code:text-cyan-400 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
+            "prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl",
+            "prose-code:text-amber-600 dark:prose-code:text-amber-300 prose-code:bg-amber-400/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
             "prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline",
             "prose-p:leading-relaxed prose-p:my-1",
             "prose-ul:my-2 prose-ol:my-2",

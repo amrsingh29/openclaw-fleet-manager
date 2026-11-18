@@ -50,12 +50,30 @@ export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
     };
 
     const copyOutput = async () => {
+        const text = task.output || '';
+        let ok = false;
         try {
-            await navigator.clipboard.writeText(task.output || '');
+            await navigator.clipboard.writeText(text);
+            ok = true;
+        } catch {
+            // Async clipboard needs a secure context/permission; fall back to the
+            // legacy selection trick so Copy still works over plain http.
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+            } catch {
+                ok = false;
+            }
+        }
+        if (ok) {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Clipboard can be blocked; the text is still selectable in the pane.
         }
     };
 

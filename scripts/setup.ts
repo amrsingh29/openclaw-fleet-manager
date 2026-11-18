@@ -181,8 +181,14 @@ async function main() {
                 env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
                 timeout: 60_000,
             });
-            const first = stdout.trim().split("\n").filter((l) => l && !l.includes("DeprecationWarning"));
-            ok(`${fn} → ${first[first.length - 1]?.slice(0, 100) ?? "done"}`);
+            // Convex prints a JSON result, which may span lines. Take the last
+            // meaningful line but keep it readable rather than showing a brace.
+            const lines = stdout
+                .split("\n")
+                .map((l) => l.trim())
+                .filter((l) => l && !l.includes("DeprecationWarning") && l !== "{" && l !== "}" && l !== "}");
+            const summary = lines[lines.length - 1] ?? "done";
+            ok(`${fn} → ${summary.length > 110 ? summary.slice(0, 110) + "…" : summary}`);
         } catch (err: any) {
             warn(`${fn} failed: ${(err.stderr ?? err.message ?? "").split("\n")[0]}`);
         }
