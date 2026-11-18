@@ -84,18 +84,37 @@ export function resolveLlmConfig(cfg?: LlmConfig): {
         );
     }
 
-    const keyEnvVar = ENV_KEY_BY_PROVIDER[providerName] ?? "LLM_API_KEY";
-    const apiKey =
-        process.env.LLM_API_KEY?.trim() ||
-        (keyEnvVar ? process.env[keyEnvVar]?.trim() : undefined) ||
-        fromFile.apiKey ||
-        "";
+    // Key resolution. `openai-compatible` is not a vendor, so there is no single
+    // env var for it: it could be a gateway, a proxy, or a local server. Try the
+    // specific provider first, then the generic names, then the file.
+    //
+    // This used to look up ENV_KEY_BY_PROVIDER[providerName] and fall back to
+    // LLM_API_KEY only, so setting OPENAI_API_KEY with provider=openai-compatible
+    // silently produced an empty key and a 401 from the gateway.
+    const specific = ENV_KEY_BY_PROVIDER[providerName];
+    const candidates = [
+        specific,
+        "LLM_API_KEY",
+        // A generic fallback worth having: most people with one key for an
+        // OpenAI-shaped endpoint set it as OPENAI_API_KEY whatever the host is.
+        "OPENAI_API_KEY",
+    ].filter((v): v is string => Boolean(v));
+
+    let apiKey = "";
+    for (const envVar of candidates) {
+        const v = process.env[envVar]?.trim();
+        if (v) {
+            apiKey = v;
+            break;
+        }
+    }
+    if (!apiKey) apiKey = (fromFile.apiKey ?? "").trim();
 
     // Local servers legitimately need no key; hosted ones do. Warn rather than throw
     // so a forker sees the problem in doctor output instead of a wall of 401s.
     const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0|host\.docker\.internal/.test(baseUrl);
     if (!apiKey && providerName !== "anthropic" && !isLocal) {
-        warnings.push(`No API key found for ${providerName}. Tried LLM_API_KEY and ${keyEnvVar || "(none)"}.`);
+        warnings.push(`No API key found for ${providerName}. Tried ${candidates.join(", ")} and llm.apiKey in fleet.yml.`);
     }
 
     return {

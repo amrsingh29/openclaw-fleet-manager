@@ -53,9 +53,14 @@ export const updateStatus = mutation({
     handler: async (ctx, args) => {
         const orgId = await maybeGetOrgId(ctx);
         const task = await ctx.db.get(args.id);
-        if (!task || (orgId && task.orgId !== orgId)) throw new Error("Unauthorized");
+        if (!task) {
+            console.warn(`updateStatus: task ${args.id} no longer exists; ignoring`);
+            return { ok: false, reason: "task_missing" as const };
+        }
+        if (orgId && task.orgId !== orgId) throw new Error("Unauthorized: task belongs to another org");
 
         await ctx.db.patch(args.id, { status: args.status, lastUpdated: Date.now() });
+        return { ok: true as const };
     },
 });
 
@@ -133,7 +138,15 @@ export const complete = mutation({
     handler: async (ctx, args) => {
         const orgId = await maybeGetOrgId(ctx);
         const task = await ctx.db.get(args.taskId);
-        if (!task || (orgId && task.orgId !== orgId)) throw new Error("Unauthorized");
+
+        // A task can disappear between claim and complete (wiped board, deleted by
+        // a human). Throwing here killed the runner loop with a misleading
+        // "Unauthorized"; return quietly instead, since the work is moot.
+        if (!task) {
+            console.warn(`complete: task ${args.taskId} no longer exists; ignoring`);
+            return { ok: false, reason: "task_missing" as const };
+        }
+        if (orgId && task.orgId !== orgId) throw new Error("Unauthorized: task belongs to another org");
 
         await ctx.db.patch(args.taskId, {
             status: 'done',
