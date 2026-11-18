@@ -61,14 +61,16 @@ export function CreateMissionModal({
         setIsSubmitting(true);
 
         try {
+            // LOCAL FIX: the deployed backend is the root convex/ project, whose
+            // tasks.create takes no missionId and a string priority. v2's local
+            // _generated types disagree, which made every create fail validation.
             await createMission({
                 title,
                 description,
                 status: defaultStatus,
                 priority,
                 teamId: selectedTeamId || teamId,
-                missionId: `mission-${Date.now()}`
-            });
+            } as any);
 
             toast.success("Mission created successfully", {
                 description: `"${title}" has been added to the mission board.`,

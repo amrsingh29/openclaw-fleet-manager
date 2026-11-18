@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Layout } from './components/Layout';
 import { NewMissionModal } from './components/NewMissionModal';
 import { TaskDetailsModal } from './components/TaskDetailsModal';
-import { Activity, MessageSquare, Users, Settings } from 'lucide-react';
+import { Activity, MessageSquare, Users, Settings, TrendingUp } from 'lucide-react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AnimatePresence } from 'framer-motion';
 
@@ -12,13 +12,14 @@ import { WarRoom } from './components/WarRoom';
 import { TeamView } from './components/TeamView';
 import { EditAgentModal } from './components/EditAgentModal';
 import { CommandCenter } from './components/CommandCenter';
+import { Analytics } from './components/Analytics';
 
 function AppContent() {
   const createMission = useMutation(api.tasks.create);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editingAgent, setEditingAgent] = useState<any>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'warroom' | 'team'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'analytics' | 'warroom' | 'team'>('dashboard');
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
   const { theme } = useTheme();
 
@@ -61,6 +62,20 @@ function AppContent() {
           </button>
 
           <button
+            onClick={() => setCurrentView('analytics')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left
+                ${currentView === 'analytics'
+                ? (theme === 'dark' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-blue-50 text-blue-600')
+                : 'hover:bg-white/5 opacity-70 hover:opacity-100'}
+                 ${isSidebarCollapsed ? 'justify-center' : ''}
+            `}
+            title={isSidebarCollapsed ? "Analytics" : undefined}
+          >
+            <TrendingUp className="w-4 h-4 flex-none" />
+            {!isSidebarCollapsed && <span className="font-medium">Analytics</span>}
+          </button>
+
+          <button
             onClick={() => setCurrentView('warroom')}
             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left
                 ${currentView === 'warroom'
@@ -99,7 +114,9 @@ function AppContent() {
         )}
 
         {/* View Switcher */}
-        {currentView === 'warroom' ? (
+        {currentView === 'analytics' ? (
+          <Analytics />
+        ) : currentView === 'warroom' ? (
           <WarRoom />
         ) : currentView === 'team' && currentTeamId ? (
           <div className="flex-1 overflow-y-auto no-scrollbar">

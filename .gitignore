@@ -26,3 +26,10 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Local config and build artefacts
+fleet.local.yml
+fleet.local.yaml
+mission-control-dashboard/tsconfig.*.tsbuildinfo
+local-setup-shots/
+LOCAL_SETUP.md

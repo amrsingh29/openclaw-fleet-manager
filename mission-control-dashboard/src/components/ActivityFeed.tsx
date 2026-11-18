@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { MessageSquare, FileText, CheckCircle, Activity } from 'lucide-react';
+import type React from 'react';
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useTheme } from '../context/ThemeContext';
@@ -10,10 +11,12 @@ interface ActivityFeedProps {
 }
 
 export function ActivityFeed({ filter = 'all', minimal = false }: ActivityFeedProps) {
-    const activities = useQuery(api.activities.list) || [];
+    // activities.list now takes an optional limit; pass an explicit one so the
+    // sidebar feed stays a glance rather than an unbounded scan.
+    const activities = useQuery(api.activities.list, { limit: minimal ? 15 : 50 }) || [];
     const { theme } = useTheme();
 
-    const icons: Record<string, JSX.Element> = {
+    const icons: Record<string, React.ReactElement> = {
         message_sent: <MessageSquare className="w-4 h-4 text-cyan-500" />,
         task_created: <Activity className="w-4 h-4 text-slate-400" />,
         task_assigned: <Activity className="w-4 h-4 text-yellow-500" />,

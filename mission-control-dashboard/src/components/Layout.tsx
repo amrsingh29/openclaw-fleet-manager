@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Sun, Moon, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import {Sun, Moon, PanelLeftClose, PanelLeftOpen} from 'lucide-react';
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useTheme } from '../context/ThemeContext';

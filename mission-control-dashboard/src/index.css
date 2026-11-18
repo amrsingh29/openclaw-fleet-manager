@@ -1,2 +1,17 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+/*
+ * Scrollbars are hidden on the panes that scroll (sidebar, kanban lanes, chat)
+ * because they are scroll-by-trackpad surfaces, not scroll-by-drag ones. The
+ * class is used by Layout, CommandCenter and TaskBoard; without it the browser
+ * paints its default light scrollbar over a dark theme, which reads as a bug.
+ */
+.no-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* legacy Edge/IE */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+}

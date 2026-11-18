@@ -1,6 +1,5 @@
 import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
 import { encrypt, decrypt } from "./encryption";
 
 /**
@@ -58,7 +57,7 @@ export const listByOrgManual = query({
  */
 export const testEncryption = action({
     args: { secret: v.string() },
-    handler: async (ctx, args) => {
+    handler: async (_ctx, args) => {
         const { encryptedValue, iv } = await encrypt(args.secret);
         const decrypted = await decrypt(encryptedValue, iv);
 

@@ -8,9 +8,11 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Terminal, Calendar, User, Zap, Clock } from "lucide-react";
+import { FileText, Terminal, Calendar, User, Zap, Clock, Maximize2, Minimize2 } from "lucide-react";
+import { MarkdownRenderer, remarkSoftBreaks } from "@/components/ui/markdown-renderer";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useState } from "react";
 
 interface MissionDetailModalProps {
     task: any | null;
@@ -20,15 +22,26 @@ interface MissionDetailModalProps {
 }
 
 export function MissionDetailModal({ task, isOpen, onClose, agents }: MissionDetailModalProps) {
+    const [isWide, setIsWide] = useState(true);
+
     if (!task) return null;
 
-    const date = new Date(task.createdTime || Date.now()).toLocaleString();
+    const date = new Date(task.createdTime || task._creationTime || Date.now()).toLocaleString();
     const assigneeId = task.assigneeIds?.[0];
     const agent = assigneeId ? agents.find((a) => a._id === assigneeId) : null;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 bg-background/95 backdrop-blur-2xl border-white/10 shadow-2xl rounded-2xl">
+            <DialogContent className={`${isWide ? "max-w-5xl sm:max-w-5xl" : "max-w-2xl sm:max-w-2xl"} max-h-[92vh] overflow-hidden flex flex-col p-0 bg-background/95 backdrop-blur-2xl border-white/10 shadow-2xl rounded-2xl`}>
+                <button
+                    type="button"
+                    onClick={() => setIsWide((w) => !w)}
+                    className="absolute right-12 top-4 p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors z-10"
+                    title={isWide ? "Narrow panel" : "Widen panel"}
+                    aria-label={isWide ? "Narrow panel" : "Widen panel"}
+                >
+                    {isWide ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
                 <DialogHeader className="p-6 pb-4 border-b border-white/5 bg-white/[0.01]">
                     <div className="flex items-center gap-2 mb-2">
                         <Badge variant="outline" className="font-mono text-[9px] py-0.5 px-1.5 border-primary/20 text-primary/80 bg-primary/5">
@@ -86,8 +99,8 @@ export function MissionDetailModal({ task, isOpen, onClose, agents }: MissionDet
                         </div>
                         <div className="flex-1 min-w-0 pt-0.5">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50 mb-3">Mission Directives</h3>
-                            <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 text-sm leading-relaxed text-foreground/80 font-medium italic">
-                                {task.description}
+                            <div className="p-5 rounded-xl bg-secondary/30 border border-border">
+                                <MarkdownRenderer content={task.description || ""} className="text-foreground/80" />
                             </div>
                         </div>
                     </div>
@@ -100,8 +113,8 @@ export function MissionDetailModal({ task, isOpen, onClose, agents }: MissionDet
                             </div>
                             <div className="flex-1 min-w-0 pt-0.5">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50 mb-3">Tactical Result</h3>
-                                <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden shadow-xl ring-1 ring-white/5">
-                                    <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5">
+                                    <div className="px-4 py-2 border-b border-border bg-secondary/40 flex justify-between items-center">
                                         <div className="flex gap-1.5 opacity-30">
                                             <div className="w-2 h-2 rounded-full bg-slate-500" />
                                             <div className="w-2 h-2 rounded-full bg-slate-500" />
@@ -112,16 +125,16 @@ export function MissionDetailModal({ task, isOpen, onClose, agents }: MissionDet
                                             <Zap size={10} className="text-primary/60 animate-pulse" />
                                         </div>
                                     </div>
-                                    <div className="p-6 prose prose-invert dark:prose-invert prose-slate max-w-none 
+                                    <div className="p-6 prose prose-sm dark:prose-invert prose-slate max-w-none 
                                         prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
                                         prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-sm
-                                        prose-strong:text-cyan-400/90 prose-strong:font-bold
-                                        prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline
-                                        prose-code:text-amber-300/90 prose-code:bg-amber-400/5 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                                        prose-pre:bg-black/60 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-pre:p-4
+                                        prose-strong:text-cyan-500 dark:prose-strong:text-cyan-400/90 prose-strong:font-bold
+                                        prose-a:text-cyan-500 dark:prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline
+                                        prose-code:text-amber-600 dark:prose-code:text-amber-300/90 prose-code:bg-amber-400/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                                        prose-pre:bg-black/80 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-pre:p-4
                                         prose-ul:border-l prose-ul:border-primary/10 prose-ul:pl-4
                                         prose-li:marker:text-primary">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkSoftBreaks]}>
                                             {task.output || "_Scanning for operational data..._"}
                                         </ReactMarkdown>
                                     </div>

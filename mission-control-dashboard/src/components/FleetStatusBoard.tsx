@@ -1,10 +1,6 @@
 
-import { motion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
-import {
-    Bot, Zap, Clock, AlertCircle, Cpu, User, Wrench, Microscope,
-    PenTool, Flame, Smartphone, Search, BarChart, Palette, Clipboard
-} from 'lucide-react';
+import {Bot, User, Wrench, Microscope, PenTool, Flame, Smartphone, Search, BarChart, Palette, Clipboard} from 'lucide-react';
 
 interface FleetStatusBoardProps {
     agents: any[];
@@ -68,27 +64,19 @@ export function FleetStatusBoard({ agents }: FleetStatusBoardProps) {
 
             {/* List */}
             <div className="flex flex-col gap-0 overflow-y-auto pr-1 pb-4">
-                {agents.map((agent, i) => {
+                {agents.map((agent) => {
                     const Icon = getAgentIcon(agent.role, agent.name);
                     const badgeLabel = getBadge(agent.role);
                     const isOffline = agent.status === 'offline' || (Date.now() - (agent.lastHeartbeat || 0) > 60000);
-                    const isWorking = agent.status === 'working' || agent.status === 'busy' || !isOffline; // Assume working if online for this design? 
                     // Actually, let's use real status. The image shows all "WORKING". 
                     // I will map real status to "WORKING" (Green), "IDLE" (Yellow/Grey?), "OFFLINE" (Red/Gray).
 
-                    let statusColor = 'green';
                     let statusText = 'WORKING';
                     if (isOffline) {
-                        statusColor = 'slate';
                         statusText = 'OFFLINE';
                     } else if (agent.status === 'idle') {
-                        statusColor = 'emerald'; // Idle is technically ready to work, often shown as Green/Working in this mockup context?
-                        statusText = 'READY'; // Or just map everything online to "WORKING" as per mockup request?
-                        // The user said "look like this", and the image shows "WORKING".
-                        // I'll stick to real status but style it like the image.
                         statusText = 'ONLINE';
                     } else if (agent.status === 'working' || agent.status === 'busy') {
-                        statusColor = 'green';
                         statusText = 'WORKING';
                     }
 

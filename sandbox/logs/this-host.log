@@ -1,0 +1,6 @@
+2026-11-18T07:41:02Z INFO  fleet-agent  sample log shipped with the repo
+2026-11-18T07:41:02Z INFO  fleet-agent  tools read this file via fetch_latest_logs
+2026-11-18T07:41:03Z DEBUG fleet-agent  replace this path in fleet.yml with a real service log
+2026-11-18T07:45:11Z WARN  fleet-agent  example warning line so there is something to find
+2026-11-18T07:45:11Z ERROR fleet-agent  example error line, harmless
+2026-11-18T07:46:00Z INFO  fleet-agent  end of sample log

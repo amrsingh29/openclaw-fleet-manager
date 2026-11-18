@@ -1,15 +1,14 @@
-import { MutationCtx, ActionCtx } from "./_generated/server";
-import { v } from "convex/values";
-import { api } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
 
 const FLY_API_TOKEN = process.env.FLY_API_TOKEN;
 const FLY_APP_NAME = process.env.FLY_APP_NAME || "openclaw-runners";
 const FLY_ORG_NAME = process.env.FLY_ORG_NAME || "personal";
+void FLY_ORG_NAME; // reserved for org-scoped machines
 
 /**
  * Convex Action to spawn a new Fly.io Machine for an agent.
  */
-export async function spawnAgentMachine(ctx: ActionCtx, args: { agentId: string, agentName: string }) {
+export async function spawnAgentMachine(_ctx: ActionCtx, args: { agentId: string, agentName: string }) {
     if (!FLY_API_TOKEN) {
         console.warn("⚠️ FLY_API_TOKEN not set. Running in Mock Mode.");
         return "mock_machine_id_" + Math.random().toString(36).substring(7);
@@ -50,7 +49,7 @@ export async function spawnAgentMachine(ctx: ActionCtx, args: { agentId: string,
 /**
  * Convex Action to stop and delete a Fly.io Machine.
  */
-export async function stopAgentMachine(ctx: ActionCtx, args: { machineId: string }) {
+export async function stopAgentMachine(_ctx: ActionCtx, args: { machineId: string }) {
     if (!FLY_API_TOKEN) return;
 
     await fetch(`https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines/${args.machineId}`, {
