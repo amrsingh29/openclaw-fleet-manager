@@ -13,7 +13,9 @@ export const hireAgent = action({
         teamId: v.id("teams"),
         soul: v.string()
     },
-    handler: async (ctx, args) => {
+    // Explicit return types break the api<->orchestrator inference cycle that
+    // otherwise makes `api` implicitly `any` and fails the Convex typecheck.
+    handler: async (ctx, args): Promise<{ agentId: any; machineId?: string; error?: string }> => {
         // 1. Call Mutation to insert record
         const agentId = await ctx.runMutation(api.agents.hire, args);
 
@@ -43,7 +45,7 @@ export const hireAgent = action({
  */
 export const fireAgent = action({
     args: { agentId: v.id("agents") },
-    handler: async (ctx, args) => {
+    handler: async (ctx, args): Promise<void> => {
         // 1. Get containerId
         const agent = await ctx.runQuery(api.agents.getAgent, { id: args.agentId });
         if (!agent) return;
@@ -63,7 +65,7 @@ export const fireAgent = action({
  */
 export const reapInactiveAgents = action({
     args: {},
-    handler: async (ctx) => {
+    handler: async (ctx): Promise<void> => {
         // 1. Find agents offline for > 15 mins (using internal mutation)
         const deadAgents = await ctx.runMutation(api.agents.findInactiveWithContainers, {
             timeoutSeconds: 15 * 60

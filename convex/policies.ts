@@ -1,7 +1,6 @@
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getOrgId } from "./utils";
-import { Id } from "./_generated/dataModel";
 
 /**
  * Sets or updates a policy for a specific action type for a team (or global).

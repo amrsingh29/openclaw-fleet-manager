@@ -1,7 +1,7 @@
-import { mutation, query, internalQuery } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getOrgId } from "./utils";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 /**
  * Creates a new proposal for an action that requires human approval.
@@ -17,7 +17,10 @@ export const createProposal = mutation({
         cost: v.optional(v.number()),
         confidence: v.optional(v.number()),
     },
-    handler: async (ctx, args) => {
+    handler: async (
+        ctx,
+        args,
+    ): Promise<{ proposalId: any; status: "pending" | "auto_approved" | "approved" | "denied" }> => {
         const orgId = await getOrgId(ctx);
 
         // 1. Get agent's team
@@ -25,13 +28,13 @@ export const createProposal = mutation({
         const teamId = agent?.teamId;
 
         // 2. Evaluate Policy (The Gatekeeper)
-        const status = await ctx.runQuery(internal.policies.evaluateAction, {
+        const status = (await ctx.runQuery(internal.policies.evaluateAction, {
             orgId,
             teamId,
             actionType: args.action,
             cost: args.cost,
             confidence: args.confidence,
-        });
+        })) as "pending" | "auto_approved" | "approved" | "denied";
 
         // 3. Insert Proposal
         const proposalId = await ctx.db.insert("proposals", {

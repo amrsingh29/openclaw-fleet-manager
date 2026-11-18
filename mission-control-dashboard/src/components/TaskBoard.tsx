@@ -1,10 +1,10 @@
-import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
 import { DndContext, closestCorners, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
+import { Maximize2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { markdownToPlainText } from '../lib/text';
 
 interface TaskBoardProps {
     tasks: any[];
@@ -93,6 +93,9 @@ function TaskCard({ task, agents, onClick }: { task: any, agents: any[], onClick
     const assigneeId = task.assigneeIds?.[0];
     const agent = assigneeId ? agents.find(a => a._id === assigneeId) : null;
 
+    const preview = task.output ? markdownToPlainText(task.output) : '';
+    const hasMore = preview.length > 180;
+
     return (
         <motion.div
             ref={setNodeRef}
@@ -100,20 +103,42 @@ function TaskCard({ task, agents, onClick }: { task: any, agents: any[], onClick
             {...attributes}
             {...listeners}
             onClick={onClick}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') onClick?.();
+            }}
             layoutId={task._id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-3 rounded-lg border shadow-sm cursor-grab active:cursor-grabbing group hover:shadow-md transition-all duration-200
+            title={preview || task.title}
+            className={`p-3 rounded-lg border shadow-sm cursor-pointer active:cursor-grabbing group hover:shadow-md transition-all duration-200
                 ${theme === 'dark'
                     ? 'bg-[#1e293b] border-white/10 hover:border-cyan-500/50'
                     : 'bg-white border-slate-200 hover:border-blue-400'}
             `}
         >
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-start mb-2 gap-1">
                 <span className="text-[9px] font-mono text-cyan-500 truncate">TASK-{task._id.slice(-4)}</span>
-                {task.priority === 'high' && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)] flex-none" />
-                )}
+                <div className="flex items-center gap-1 flex-none">
+                    {task.priority === 'high' && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)]" />
+                    )}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            // Keep the expand affordance from starting a drag.
+                            e.stopPropagation();
+                            onClick?.();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-0.5 rounded
+                            ${theme === 'dark' ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}
+                        `}
+                        title="Open full task"
+                        aria-label="Open full task"
+                    >
+                        <Maximize2 className="w-3 h-3" />
+                    </button>
+                </div>
             </div>
             <h5 className={`text-xs font-medium mb-2 line-clamp-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                 {task.title}
@@ -144,14 +169,22 @@ function TaskCard({ task, agents, onClick }: { task: any, agents: any[], onClick
                 )}
             </div>
 
-            {/* Display Output if available */}
-            {task.output && (
+            {/* Result preview — plain text, click the card to read the full report */}
+            {preview && (
                 <div className={`mt-3 pt-2 border-t ${theme === 'dark' ? 'border-white/10' : 'border-slate-100'}`}>
                     <p className="text-[10px] font-semibold opacity-70 mb-1">Result:</p>
-                    <div className={`text-[10px] font-mono p-1.5 rounded bg-black/20 overflow-hidden text-ellipsis
-                        ${theme === 'dark' ? 'text-cyan-300' : 'text-slate-600 bg-slate-50'}
+                    <div className={`text-[10px] leading-snug p-1.5 rounded overflow-hidden
+                        ${theme === 'dark' ? 'bg-black/20 text-slate-300' : 'text-slate-600 bg-slate-50'}
                     `}>
-                        {task.output.slice(0, 150)}{task.output.length > 150 ? '...' : ''}
+                        <p className="line-clamp-4 whitespace-pre-wrap break-words">{preview}</p>
+                        {hasMore && (
+                            <span className={`mt-1 flex items-center gap-1 text-[9px] font-semibold
+                                ${theme === 'dark' ? 'text-cyan-400' : 'text-blue-600'}
+                            `}>
+                                <Maximize2 className="w-2.5 h-2.5" />
+                                Open full report
+                            </span>
+                        )}
                     </div>
                 </div>
             )}

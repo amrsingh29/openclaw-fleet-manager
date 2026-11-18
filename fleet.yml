@@ -1,0 +1,69 @@
+# fleet.yml — what the agents can see and touch.
+#
+# Copy to fleet.local.yml for anything machine-specific; that file is gitignored
+# so real hostnames and container names stay out of the repo.
+#
+# Every service listed here is a service an agent may name in a tool call.
+# Anything not listed is refused. That allowlist is the primary guardrail.
+
+llm:
+  # Provider presets: openai | openrouter | groq | together | deepseek | ollama
+  #                   | lmstudio | vllm | anthropic | openai-compatible
+  # For anything else set provider: openai-compatible plus a baseUrl.
+  provider: openai
+  model: gpt-4o
+  # baseUrl: https://api.openai.com/v1
+  # apiKey: prefer an env var (OPENAI_API_KEY / LLM_API_KEY) over putting a key here
+  temperature: 0.4
+  maxTokens: 4096
+  timeoutMs: 120000
+
+# Default target for any service that does not name one.
+default: local
+
+targets:
+  local:
+    kind: local
+  # Uncomment and edit for a real host. Keys come from your ssh agent by default.
+  # staging:
+  #   kind: ssh
+  #   host: 10.0.1.20
+  #   user: deploy
+  # sandbox:
+  #   kind: docker
+  #   container: fleet-sandbox
+
+services:
+  # A worked example that works on any machine with no setup: it reports this
+  # host and points at a sample log the repo ships.
+  - name: this-host
+    target: local
+    logPaths:
+      - sandbox/logs/this-host.log
+
+  # Add your own, for example:
+  # - name: nginx
+  #   target: local
+  #   logPaths:
+  #     - /var/log/nginx/error.log
+  #   restart:
+  #     manager: systemd      # launchd | systemd | docker | none
+  #     unit: nginx
+  #   healthUrl: http://localhost:80/health
+
+# Hosts scan_network may probe. Empty means it refuses everything, which is the
+# right default: an agent should not be able to sweep your network unprompted.
+scanAllowlist:
+  - localhost
+  - 127.0.0.1
+
+# Autonomy. "auto" executes, "propose_only" raises a proposal card in the UI,
+# "manual" refuses unless a human pre-approved this exact call.
+# Read tools default to auto; the only write tool defaults to propose_only.
+policies:
+  read: auto
+  write: propose_only
+
+# Tool-call round trips one task may make before it must answer. Raise this for
+# genuinely investigative missions, lower it if a model loops.
+maxToolRounds: 6

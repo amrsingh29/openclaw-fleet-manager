@@ -10,7 +10,8 @@
     ],
     "module": "ESNext",
     "types": [
-      "vite/client"
+      "vite/client",
+      "node"
     ],
     "skipLibCheck": true,
     /* Bundler mode */
@@ -35,5 +36,6 @@
   },
   "include": [
     "src"
-  ]
+  ],
+  "exclude": ["src/**/*.test.ts"]
 }

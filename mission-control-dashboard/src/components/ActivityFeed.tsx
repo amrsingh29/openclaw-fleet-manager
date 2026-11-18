@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { MessageSquare, FileText, CheckCircle, Activity } from 'lucide-react';
+import type React from 'react';
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useTheme } from '../context/ThemeContext';
@@ -13,7 +14,7 @@ export function ActivityFeed({ filter = 'all', minimal = false }: ActivityFeedPr
     const activities = useQuery(api.activities.list) || [];
     const { theme } = useTheme();
 
-    const icons: Record<string, JSX.Element> = {
+    const icons: Record<string, React.ReactElement> = {
         message_sent: <MessageSquare className="w-4 h-4 text-cyan-500" />,
         task_created: <Activity className="w-4 h-4 text-slate-400" />,
         task_assigned: <Activity className="w-4 h-4 text-yellow-500" />,

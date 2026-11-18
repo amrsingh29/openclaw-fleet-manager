@@ -1,271 +1,259 @@
+// One process per agent. Polls Convex for work, runs it through the tool loop,
+// writes results back. The loop is deliberately dumb: all the intelligence lives
+// in the soul prompt and the tools, so a failure here is easy to read in a log.
+
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import * as fs from "fs";
-import * as path from "path";
 import * as dotenv from "dotenv";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { AgentBrain, BrainCallbacks } from "./openclaw_brain.js";
+import { ToolEvent } from "./agent-turn.js";
+import { defaultRegistry } from "./tools/registry.js";
+import { listServiceNames } from "./fleet-config.js";
 
-const execAsync = promisify(exec);
+dotenv.config({ path: ".env" });
+dotenv.config({ path: ".env.local" });
 
-dotenv.config();
+const POLL_INTERVAL_MS = 5000;
+const HEARTBEAT_INTERVAL_MS = 30000;
 
-const CONFIG_PATH = process.argv.find(arg => arg.startsWith("--config="))?.split("=")[1];
+// ---- argument parsing -------------------------------------------------------
 
-if (!CONFIG_PATH) {
-    console.error("Usage: tsx scripts/agent-runner.ts --config=<path-to-soul.md>");
+const configArg = process.argv.find((a) => a.startsWith("--config="))?.split("=")[1];
+const channelArg = process.argv.find((a) => a.startsWith("--channel="))?.split("=")[1];
+
+if (!configArg) {
+    console.error("Usage: tsx scripts/agent-runner.ts --config=agents/configs/<name>.soul.md [--channel=general]");
     process.exit(1);
 }
 
-// 1. Read Configuration
-const soulContent = fs.readFileSync(CONFIG_PATH, "utf-8");
+const soulPath = configArg.replace(/["'""]/g, "");
+if (!fs.existsSync(soulPath)) {
+    console.error(`Soul file not found: ${soulPath}`);
+    process.exit(1);
+}
+
+const soulContent = fs.readFileSync(soulPath, "utf-8");
 const nameMatch = soulContent.match(/\*\*Name:\*\*\s*(.*)/);
 const roleMatch = soulContent.match(/\*\*Role:\*\*\s*(.*)/);
 const keyMatch = soulContent.match(/\*\*Session Key:\*\*\s*(.*)/);
 
-const AGENT_NAME = nameMatch ? nameMatch[1].trim() : "Unknown";
-const AGENT_ROLE = roleMatch ? roleMatch[1].trim() : "Agent";
-const SESSION_KEY = keyMatch ? keyMatch[1].trim() : `agent:${Date.now()}`;
+const AGENT_NAME = (nameMatch?.[1] ?? "Unknown").trim();
+const AGENT_ROLE = (roleMatch?.[1] ?? "Agent").trim();
+const SESSION_KEY = (keyMatch?.[1] ?? `agent:${Date.now()}`).trim();
+const CHANNEL = (channelArg ?? "general").replace(/["'""]/g, "");
 
-console.log(`🤖 Starting Agent: ${AGENT_NAME} (${AGENT_ROLE})`);
+// ---- Convex client ----------------------------------------------------------
 
-// 2. Connect to Convex
-const CONVEX_URL = process.env.VITE_CONVEX_URL || process.env.CONVEX_URL;
+const CONVEX_URL = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL;
 if (!CONVEX_URL) {
-    console.error("❌ Missing CONVEX_URL env var");
+    console.error("Missing CONVEX_URL. Run `npm run setup`, or set it in .env.");
     process.exit(1);
 }
+
 const client = new ConvexHttpClient(CONVEX_URL);
 
-// 3. Main Loop
-async function main() {
-    console.log("🔌 Connecting to Mission Control...");
+// ---- brain ------------------------------------------------------------------
 
-    // Register/Get ID
+const toolEvents: ToolEvent[] = [];
+
+const callbacks: BrainCallbacks = {
+    onToolEvent: async (e) => {
+        toolEvents.push(e);
+        console.log(
+            `  🛠️  ${e.tool}(${JSON.stringify(e.args)}) -> ${e.result.ok ? "ok" : "FAILED"} in ${e.elapsedMs}ms`,
+        );
+        if (!e.result.ok) console.log(`      ${e.result.output.split("\n")[0]}`);
+    },
+    onNeedsApproval: async (info) => {
+        console.log(`  ⏸️  Needs approval: ${info.tool} — ${info.reason.split("\n")[0]}`);
+    },
+};
+
+let brain: AgentBrain | null = null;
+
+function getBrain(): AgentBrain {
+    if (!brain) {
+        console.log(`🧠 Initialising brain for ${AGENT_NAME}...`);
+        brain = new AgentBrain(AGENT_NAME, soulContent, { callbacks });
+        console.log(`   provider=${brain.providerId} model=${brain.model}`);
+    }
+    return brain;
+}
+
+// ---- audit ------------------------------------------------------------------
+
+/** Writes every tool call to the activity feed so the UI shows real work. */
+async function logToolEvents(agentId: any, taskId: string | null): Promise<void> {
+    for (const e of toolEvents) {
+        try {
+            await client.mutation(api.activities.log, {
+                agentId,
+                type: "tool_call",
+                message: `${AGENT_NAME} ran ${e.tool}${e.result.ok ? "" : " (failed)"}`,
+                metadata: {
+                    tool: e.tool,
+                    args: e.args,
+                    ok: e.result.ok,
+                    elapsedMs: e.elapsedMs,
+                    taskId,
+                    output: e.result.output.slice(0, 500),
+                },
+            });
+        } catch (err: any) {
+            // Audit failure must not abort the mission; it is logged locally.
+            console.error("Could not log tool event:", err.message);
+        }
+    }
+    toolEvents.length = 0;
+}
+
+// ---- task loop --------------------------------------------------------------
+
+async function processTasks(agentId: any): Promise<void> {
+    const tasks = await client.query(api.tasks.list);
+
+    // Work already mine, in progress.
+    const mine = tasks.find(
+        (t: any) =>
+            Array.isArray(t.assigneeIds) &&
+            t.assigneeIds.includes(agentId) &&
+            (t.status === "in_progress" || t.status === "assigned"),
+    );
+
+    if (mine) {
+        if (mine.status === "assigned") {
+            await client.mutation(api.tasks.updateStatus, { id: mine._id, status: "in_progress" });
+            return; // next tick picks it up as in_progress
+        }
+
+        console.log(`🚀 Mission: ${mine.title}`);
+        await client.mutation(api.agents.updateStatus, { id: agentId, status: "working" });
+
+        try {
+            const { text, tools } = await getBrain().work(mine.title, mine.description);
+            const summary = summariseTools(tools);
+            console.log(`✅ Done: ${text.split("\n")[0].slice(0, 120)}`);
+
+            await client.mutation(api.tasks.complete, {
+                taskId: mine._id,
+                agentId,
+                output: summary ? `${text}\n\n---\n**Tools used**\n${summary}` : text,
+            });
+            await client.mutation(api.tasks.updateStatus, { id: mine._id, status: "done" });
+            await logToolEvents(agentId, mine._id);
+        } catch (err: any) {
+            console.error("❌ Mission failed:", err.message);
+            await client.mutation(api.tasks.complete, {
+                taskId: mine._id,
+                agentId,
+                output: `[NEEDS REVIEW]: ${err.message}`,
+            });
+            await client.mutation(api.tasks.updateStatus, { id: mine._id, status: "review" });
+            await logToolEvents(agentId, mine._id);
+        } finally {
+            await client.mutation(api.agents.updateStatus, { id: agentId, status: "idle" });
+        }
+        return;
+    }
+
+    // Nothing of mine: try to claim unowned work.
+    const inboxTask = tasks.find((t: any) => t.status === "inbox" && !t.assigneeIds?.length);
+    if (inboxTask) {
+        const claimed = await client.mutation(api.tasks.claim, { taskId: inboxTask._id, agentId });
+        if (claimed) console.log(`👀 Claimed: ${inboxTask.title}`);
+    }
+}
+
+function summariseTools(tools: ToolEvent[]): string {
+    if (!tools.length) return "";
+    return tools
+        .map((t) => `- \`${t.tool}\` ${JSON.stringify(t.args)} → ${t.result.ok ? "ok" : "failed"} (${t.elapsedMs}ms)`)
+        .join("\n");
+}
+
+// ---- chat loop --------------------------------------------------------------
+
+let lastChatTime = Date.now() - 60_000;
+
+async function processChat(agentId: any): Promise<void> {
+    const messages = await client.query(api.messages.listRecent, {
+        channelId: CHANNEL,
+        after: lastChatTime,
+    });
+
+    if (!messages.length) return;
+
+    lastChatTime = Math.max(...messages.map((m: any) => m.timestamp));
+
+    for (const msg of messages) {
+        const isSelf = msg.fromAgentId === agentId;
+        if (isSelf) continue;
+
+        const fromHuman = !msg.fromAgentId;
+        const mentioned = String(msg.content).toLowerCase().includes(AGENT_NAME.toLowerCase());
+
+        // Agents answer humans and direct mentions only. This is what keeps
+        // three agents from talking to each other forever.
+        if (!fromHuman && !mentioned) continue;
+
+        console.log(`💬 ${fromHuman ? "Commander" : "Agent"}: ${String(msg.content).slice(0, 100)}`);
+
+        const reply = await getBrain().ask([], msg.content);
+        await logToolEvents(agentId, null);
+
+        if (reply === "NO_REPLY") {
+            console.log("   (stayed silent)");
+            continue;
+        }
+
+        await client.mutation(api.messages.send, {
+            channelId: CHANNEL,
+            content: reply,
+            agentId,
+        });
+        console.log(`🤖 ${AGENT_NAME}: ${reply.split("\n")[0].slice(0, 120)}`);
+    }
+}
+
+// ---- main -------------------------------------------------------------------
+
+async function main(): Promise<void> {
+    console.log(`🤖 ${AGENT_NAME} (${AGENT_ROLE})`);
+    console.log(`   channel #${CHANNEL}, convex ${CONVEX_URL}`);
+    console.log(`   services: ${listServiceNames().join(", ") || "(none declared in fleet.yml)"}`);
+
     const agentId = await client.mutation(api.agents.register, {
         name: AGENT_NAME,
         role: AGENT_ROLE,
-        sessionKey: SESSION_KEY
+        sessionKey: SESSION_KEY,
     });
+    console.log(`✅ Registered as ${agentId}`);
 
-    console.log(`✅ Registered with ID: ${agentId}`);
+    setInterval(() => {
+        client.mutation(api.agents.heartbeat, { id: agentId }).catch((e) => {
+            console.error("Heartbeat failed:", e?.message ?? e);
+        });
+    }, HEARTBEAT_INTERVAL_MS);
 
-    // Heartbeat Loop (every 30s)
-    setInterval(async () => {
-        try {
-            await client.mutation(api.agents.heartbeat, { id: agentId });
-        } catch (e) {
-            console.error("❌ Heartbeat failed:", e);
-        }
-    }, 30000);
-
-    // Task & Activity Loop
-    const runLoop = async () => {
+    const loop = async () => {
         try {
             await processTasks(agentId);
-        } catch (e) {
-            console.error("Error in loop:", e);
+        } catch (e: any) {
+            console.error("Task loop error:", e?.message ?? e);
         }
-
-        // Poll chat
-        await processChat(agentId, AGENT_NAME, CONFIG_PATH || "");
-
-        // Schedule next run only after previous one finishes
-        setTimeout(runLoop, 5000);
+        try {
+            await processChat(agentId);
+        } catch (e: any) {
+            console.error("Chat loop error:", e?.message ?? e);
+        }
+        setTimeout(loop, POLL_INTERVAL_MS);
     };
 
-    // Start the loop
-    runLoop();
+    await loop();
 }
 
-async function processTasks(agentId: any) {
-    try {
-        // 1. Fetch current view of tasks
-        const tasks = await client.query(api.tasks.list);
-
-        // 2. Do I have a task?
-        // Look for in_progress OR assigned (legacy fallback)
-        const myTask = tasks.find((t: any) => t.assigneeIds?.includes(agentId) && (t.status === 'in_progress' || t.status === 'assigned'));
-
-        if (myTask) {
-            // AUTO-RECOVERY: If it's still just 'assigned', mark it in_progress
-            if (myTask.status === 'assigned') {
-                console.log(`▶️ Auto-Starting mission: ${myTask.title}`);
-                await client.mutation(api.tasks.updateStatus, { id: myTask._id, status: 'in_progress' });
-                return; // Loop will catch it as in_progress next tick
-            }
-
-            console.log(`🚀 Executing mission: ${myTask.title}`);
-
-            // Run OpenClaw Agent
-            try {
-                const cmd = `openclaw agent --message "${myTask.description}" --session-id "task-${myTask._id}" --local`;
-                console.log(`> ${cmd}`);
-
-                const { stdout, stderr } = await execAsync(cmd, {
-                    timeout: 60000,
-                    env: { ...process.env, CI: 'true' }
-                });
-
-                const output = stdout || stderr || "Mission executed successfully.";
-                console.log("✅ Execution Result:", output.slice(0, 100) + "...");
-
-                // Atomic Complete
-                await client.mutation(api.tasks.complete, {
-                    taskId: myTask._id,
-                    agentId,
-                    output: output
-                });
-
-                await client.mutation(api.agents.updateStatus, { id: agentId, status: 'idle' });
-
-            } catch (err: any) {
-                console.error("❌ Execution Failed:", err.message);
-
-                // Capturing output on error is critical for debugging "why" it failed
-                const failureOutput = err.stdout || err.stderr || err.message;
-
-                // We save the output using 'complete' (to set the field), then flip back to 'review'
-                await client.mutation(api.tasks.complete, {
-                    taskId: myTask._id,
-                    agentId,
-                    output: `[NEEDS REVIEW]: ${failureOutput}`
-                });
-
-                await client.mutation(api.tasks.updateStatus, { id: myTask._id, status: 'review' });
-
-                await client.mutation(api.activities.log, {
-                    agentId,
-                    type: "task_completed",
-                    message: `${AGENT_NAME} failed mission: "${myTask.title}"`,
-                    metadata: { error: err.message }
-                });
-            }
-            return;
-        }
-
-        // 3. If idle, look for new work
-        const inboxTask = tasks.find((t: any) => t.status === 'inbox');
-        if (inboxTask) {
-            // Atomic Claim
-            const success = await client.mutation(api.tasks.claim, { taskId: inboxTask._id, agentId });
-
-            if (success) {
-                console.log(`👀 Successfully claimed mission: ${inboxTask.title}`);
-                // Status update to in_progress is now handled in claim mutation
-                await client.mutation(api.agents.updateStatus, { id: agentId, status: 'working' });
-            } else {
-                // Taken
-            }
-            return;
-        }
-
-        // 4. Just looking alive (Random status updates when idle)
-        const statuses = ["active", "idle"];
-        if (Math.random() > 0.95) { // Less frequent updates
-            const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
-            await client.mutation(api.agents.updateStatus, { id: agentId, status: newStatus });
-        }
-
-    } catch (e) {
-        console.error("Error in loop:", e);
-    }
-}
-
-
-// -- Brain Integration --
-import { AgentBrain } from "./openclaw_brain.js";
-
-// Global cache for brains (so we don't re-init constantly)
-const brains: Record<string, AgentBrain> = {};
-
-async function getBrain(agentName: string, configPath: string) {
-    if (brains[agentName]) return brains[agentName];
-
-    // Read the full SOUL file to get the personality
-    let soulContent = `You are ${agentName}.`;
-    try {
-        if (configPath) {
-            soulContent = fs.readFileSync(configPath, "utf-8");
-        }
-    } catch (e) {
-        console.error("Error reading soul:", e);
-    }
-
-    console.log(`🧠 Initializing Brain for ${agentName}...`);
-    brains[agentName] = new AgentBrain(agentName, soulContent);
-    return brains[agentName];
-}
-
-// Global state for chat
-let lastChatTime = Date.now();
-
-async function processChat(agentId: any, agentName: string, configPath: string) {
-    try {
-        const CHANNEL = 'general';
-        // @ts-ignore
-        const newMessages = await client.query(api.messages.listRecent, {
-            channelId: CHANNEL,
-            after: lastChatTime
-        });
-
-        if (newMessages.length > 0) {
-            lastChatTime = Math.max(...newMessages.map((m: any) => m.timestamp));
-
-            // Get Brain
-            const brain = await getBrain(agentName, configPath);
-
-            for (const msg of newMessages) {
-                // Modified Logic: Reply if (User) OR (Mentioned) AND (Not Self)
-                const isUser = !msg.fromAgentId;
-                const isSelf = msg.fromAgentId === agentId; // Or check name if ID varies
-                const isMentioned = msg.content.toLowerCase().includes(AGENT_NAME.toLowerCase());
-
-                if (!isSelf && (isUser || isMentioned)) {
-                    console.log(`💬 Incoming from ${isUser ? "User" : "Agent"}: "${msg.content}"`);
-
-                    // 1. Ask Brain
-                    let reply = await brain.ask([], msg.content);
-
-                    // 2. Check for Tool Usage (JSON)
-                    if (reply.includes("```json")) {
-                        console.log("🛠️ Agent using tool...");
-                        try {
-                            const match = reply.match(/```json\n([\s\S]*?)\n```/);
-                            if (match) {
-                                const toolCall = JSON.parse(match[1]);
-                                console.log(`> Executing: ${toolCall.tool}`);
-
-                                // Dynamic Import to avoid top-level issues
-                                const { ToolRegistry } = await import("./tools.js");
-                                const result = await ToolRegistry.execute(toolCall.tool, toolCall.args);
-
-                                console.log(`> Result: ${result}`);
-
-                                // 3. Recursion: Feed result back to brain
-                                reply = await brain.ask(
-                                    [{ role: 'assistant', content: reply }],
-                                    `System: Tool executed. Result: ${result}. Now answer the user.`
-                                );
-                            }
-                        } catch (err) {
-                            console.error("Tool execution failed:", err);
-                            reply += "\n(System: I tried to use a tool but failed.)";
-                        }
-                    }
-
-                    await client.mutation(api.messages.send, {
-                        channelId: CHANNEL,
-                        content: reply,
-                        agentId: agentId
-                    });
-                    console.log(`🤖 Reply: ${reply}`);
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Chat error:", e);
-    }
-}
-
-main().catch(console.error);
+main().catch((err) => {
+    console.error("Fatal:", err?.message ?? err);
+    process.exit(1);
+});

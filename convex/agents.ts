@@ -16,7 +16,9 @@ export const list = query({
 export const register = mutation({
     args: { name: v.string(), role: v.string(), sessionKey: v.string() },
     handler: async (ctx, args) => {
-        const orgId = await maybeGetOrgId(ctx);
+        // LOCAL FIX: was maybeGetOrgId(), which returns null for the unauthenticated
+        // runner and wrote agents the org-scoped UI can never see.
+        const orgId = await getOrgId(ctx);
         const existing = await ctx.db.query("agents")
             .filter(q => q.and(
                 q.eq(q.field("name"), args.name),

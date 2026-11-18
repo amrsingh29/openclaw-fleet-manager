@@ -11,9 +11,11 @@ import { LayoutGrid, List, Filter, Activity, Users, Plus, PanelRightClose, Panel
 
 interface CommandCenterProps {
     onTaskClick: (task: any) => void;
+    /** Opens the New Mission modal. Without this the board had no way to create work. */
+    onNewMission?: () => void;
 }
 
-export function CommandCenter({ onTaskClick }: CommandCenterProps) {
+export function CommandCenter({ onTaskClick, onNewMission }: CommandCenterProps) {
     const { theme } = useTheme();
 
     // Data
@@ -97,9 +99,16 @@ export function CommandCenter({ onTaskClick }: CommandCenterProps) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Right Pane Logic is handled in the pane itself, but maybe we want a toggle here if it disappears completely? 
-                            Nah, let's keep the strip visible.
-                        */}
+                        {onNewMission && (
+                            <button
+                                onClick={onNewMission}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-white text-xs font-semibold transition-colors shadow-sm"
+                                title="Create a new mission"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                New Mission
+                            </button>
+                        )}
                     </div>
                 </div>
 

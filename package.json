@@ -1,21 +1,36 @@
 {
   "name": "openclaw-fleet-manager",
   "version": "1.0.0",
-  "description": "",
+  "description": "Agentic orchestration platform: a fleet of AI agents that report, investigate and act on infrastructure under human-approved policies.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "setup": "tsx scripts/setup.ts",
+    "doctor": "tsx scripts/doctor.ts",
+    "dev": "tsx scripts/dev.ts",
+    "convex": "convex dev",
+    "ui": "npm --prefix mission-control-dashboard run dev",
+    "agent": "tsx scripts/agent-runner.ts",
+    "seed": "convex run seed:populate && convex run init:setupEnterprise && convex run maintenance:repair",
+    "task": "tsx scripts/new-task.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsx --test scripts/**/*.test.ts"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "agents",
+    "orchestration",
+    "convex",
+    "incident-response"
+  ],
   "license": "ISC",
   "dependencies": {
     "convex": "^1.31.7",
-    "openai": "^6.18.0"
+    "js-yaml": "^4.3.2"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.2.1",
     "dotenv": "^17.2.4",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "5.9"
   }
 }

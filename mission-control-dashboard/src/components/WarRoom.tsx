@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Hash, Users, Bot, Monitor } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {Send, Hash, Bot, Monitor} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 export function WarRoom() {
     const { theme } = useTheme();
@@ -147,7 +148,7 @@ export function WarRoom() {
                                 </div>
 
                                 {/* Bubble */}
-                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                <div className={`flex flex-col min-w-0 ${isMe ? 'items-end' : 'items-start'}`}>
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="text-[10px] font-bold opacity-50">
                                             {isMe ? 'User' : agentName}
@@ -156,12 +157,12 @@ export function WarRoom() {
                                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
-                                    <div className={`px-4 py-2 rounded-2xl text-sm leading-relaxed
+                                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed min-w-0 max-w-full
                                         ${isMe
                                             ? 'bg-cyan-600 text-white rounded-tr-none'
                                             : (theme === 'dark' ? 'bg-white/10 text-slate-200 rounded-tl-none' : 'bg-slate-100 text-slate-800 rounded-tl-none')}
                                     `}>
-                                        {msg.content}
+                                        <MarkdownRenderer content={msg.content} onAccent={isMe} />
                                     </div>
                                 </div>
                             </motion.div>

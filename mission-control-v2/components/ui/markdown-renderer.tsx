@@ -9,10 +9,36 @@ interface MarkdownRendererProps {
     className?: string;
 }
 
+/**
+ * Agents write chat messages where a single newline is a real line break, not a
+ * paragraph join. remark-gfm would collapse those into spaces, so turn every
+ * soft newline inside text into an explicit mdast `break` node.
+ */
+export function remarkSoftBreaks() {
+    return (tree: unknown) => {
+        const walk = (node: any) => {
+            if (!node.children || node.type === "code" || node.type === "inlineCode") return;
+            node.children = node.children.flatMap((child: any) => {
+                if (child.type === "text" && typeof child.value === "string" && child.value.includes("\n")) {
+                    const out: any[] = [];
+                    child.value.split("\n").forEach((part: string, i: number) => {
+                        if (i > 0) out.push({ type: "break" });
+                        if (part.length) out.push({ type: "text", value: part });
+                    });
+                    return out;
+                }
+                walk(child);
+                return child;
+            });
+        };
+        walk(tree);
+    };
+}
+
 export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
     return (
         <div className={cn(
-            "prose prose-sm prose-invert max-w-none break-words whitespace-pre-wrap overflow-wrap-anywhere",
+            "prose prose-sm dark:prose-invert max-w-none break-words [overflow-wrap:anywhere]",
             "prose-pre:bg-slate-900 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl",
             "prose-code:text-cyan-400 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
             "prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline",
@@ -22,7 +48,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             className
         )}>
             <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkSoftBreaks]}
                 components={{
                     h1: ({ node, ...props }) => <h1 className="text-sm font-bold mt-4 mb-2 first:mt-0" {...props} />,
                     h2: ({ node, ...props }) => <h2 className="text-[13px] font-bold mt-3 mb-1 first:mt-0" {...props} />,

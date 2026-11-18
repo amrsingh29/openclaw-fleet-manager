@@ -15,11 +15,12 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
-import { UserCheck } from "lucide-react";
+import { UserCheck, Maximize2 } from "lucide-react";
 import { useState } from "react";
 import { AssignTaskModal } from "./assign-task-modal";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { markdownToPlainText } from "@/lib/text";
 
 interface TaskBoardProps {
     tasks: any[];
@@ -167,6 +168,9 @@ function TaskCard({
     const assigneeId = task.assigneeIds?.[0];
     const agent = assigneeId ? agents.find((a) => a._id === assigneeId) : null;
 
+    const preview = task.output ? markdownToPlainText(task.output) : "";
+    const hasMore = preview.length > 180;
+
     return (
         <motion.div
             ref={setNodeRef}
@@ -174,24 +178,41 @@ function TaskCard({
             {...attributes}
             {...listeners}
             onClick={onClick}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") onClick?.();
+            }}
             layoutId={task._id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3 rounded-lg border border-border bg-card shadow-sm cursor-grab active:cursor-grabbing group hover:shadow-md hover:border-primary/50 transition-all duration-200"
+            title={preview || task.title}
+            className="p-3 rounded-lg border border-border bg-card shadow-sm cursor-pointer active:cursor-grabbing group hover:shadow-md hover:border-primary/50 transition-all duration-200"
         >
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-start mb-2 gap-1">
                 <span className="text-[9px] font-mono text-primary truncate">
                     TASK-{task._id.slice(-4)}
                 </span>
-                <div className="flex gap-1 items-center">
+                <div className="flex gap-1 items-center flex-none">
                     {proposals.some(p => p.taskId === task._id) && (
                         <div className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500 text-white animate-pulse">
                             PENDING APPROVAL
                         </div>
                     )}
                     {task.priority === "high" && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)] flex-none" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)]" />
                     )}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClick?.();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-0.5 rounded hover:bg-secondary text-muted-foreground"
+                        title="Open full task"
+                        aria-label="Open full task"
+                    >
+                        <Maximize2 className="w-3 h-3" />
+                    </button>
                 </div>
             </div>
             <h5 className="text-xs font-medium mb-2 line-clamp-2 text-card-foreground">{task.title}</h5>
@@ -239,13 +260,18 @@ function TaskCard({
                 )}
             </div>
 
-            {/* Display Output if available */}
-            {task.output && (
+            {/* Result preview — plain text; click the card to read the full report */}
+            {preview && (
                 <div className="mt-3 pt-2 border-t border-border">
                     <p className="text-[10px] font-semibold opacity-70 mb-1">Result:</p>
-                    <div className="text-[10px] font-mono p-1.5 rounded bg-secondary/50 overflow-hidden text-ellipsis text-muted-foreground">
-                        {task.output.slice(0, 150)}
-                        {task.output.length > 150 ? "..." : ""}
+                    <div className="text-[10px] leading-snug p-1.5 rounded bg-secondary/50 overflow-hidden text-muted-foreground">
+                        <p className="line-clamp-4 whitespace-pre-wrap break-words">{preview}</p>
+                        {hasMore && (
+                            <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-primary">
+                                <Maximize2 className="w-2.5 h-2.5" />
+                                Open full report
+                            </span>
+                        )}
                     </div>
                 </div>
             )}
