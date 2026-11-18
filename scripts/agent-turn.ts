@@ -9,6 +9,7 @@ import { ChatMessage, LlmProvider, ToolCall } from "./llm/types.js";
 import { ToolRegistry, WriteGate } from "./tools/registry.js";
 import { ToolResult } from "./tools/types.js";
 import { maxToolRounds } from "./fleet-config.js";
+import type { FleetBackend } from "./tools/backend.js";
 
 export type ToolEvent = {
     callId: string;
@@ -29,6 +30,11 @@ export type TurnOptions = {
      */
     allowTools?: string[];
     gate?: WriteGate;
+    /** The calling agent, forwarded to tools that attribute work. */
+    agentName?: string;
+    agentId?: string;
+    /** Mission Control access, for tools that touch shared state (create_task). */
+    backend?: FleetBackend;
     maxRounds?: number;
     maxTokens?: number;
     temperature?: number;
@@ -92,6 +98,9 @@ export async function runTurn(opts: TurnOptions): Promise<TurnResult> {
             const result = await registry.execute(call.name, call.args, {
                 callId: call.id,
                 gate: opts.gate,
+                agentName: opts.agentName,
+                agentId: opts.agentId,
+                backend: opts.backend,
             });
             const elapsedMs = Date.now() - started;
 

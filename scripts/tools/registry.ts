@@ -15,9 +15,17 @@ import { checkServerHealth } from "./check-server-health.js";
 import { fetchLatestLogs } from "./fetch-logs.js";
 import { scanNetwork } from "./scan-network.js";
 import { restartService } from "./restart-service.js";
+import { createTask } from "./create-task.js";
+import type { FleetBackend } from "./backend.js";
 import { ToolSchema } from "../llm/types.js";
 
-const ALL_TOOLS: FleetTool[] = [checkServerHealth, fetchLatestLogs, scanNetwork, restartService];
+const ALL_TOOLS: FleetTool[] = [
+    checkServerHealth,
+    fetchLatestLogs,
+    scanNetwork,
+    restartService,
+    createTask,
+];
 
 export type GateDecision = {
     allow: boolean;
@@ -40,6 +48,11 @@ export type ExecuteOptions = {
     approved?: boolean;
     /** Restrict which tools are available at all, e.g. per team allowedTools. */
     allowTools?: string[];
+    /** The calling agent, for tools that attribute work (create_task). */
+    agentName?: string;
+    agentId?: string;
+    /** Mission Control access, for tools that touch shared state. */
+    backend?: FleetBackend;
 };
 
 export class ToolRegistry {
@@ -110,6 +123,9 @@ export class ToolRegistry {
             callId: opts.callId,
             targetKind: "local",
             approved: opts.approved,
+            agentName: opts.agentName,
+            agentId: opts.agentId,
+            backend: opts.backend,
         };
 
         try {

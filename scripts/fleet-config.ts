@@ -53,6 +53,12 @@ export type PolicyDefaults = {
     read?: "auto" | "manual" | "propose_only";
     /** mutating tools: restart_service */
     write?: "auto" | "manual" | "propose_only";
+    /**
+     * create_task only. Delegation files work for a teammate; it does not stop a
+     * service. Gating it by default would mean a commander cannot even hand out
+     * assignments without a human, which defeats the point of having one.
+     */
+    delegate?: "auto" | "manual" | "propose_only";
 };
 
 export type FleetConfig = {
@@ -190,5 +196,6 @@ export function policyDefaults(): Required<PolicyDefaults> {
     return {
         read: p.read ?? "auto",
         write: p.write ?? "propose_only",
+        delegate: p.delegate ?? "auto",
     };
 }

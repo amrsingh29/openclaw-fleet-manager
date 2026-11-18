@@ -95,11 +95,11 @@ test("schemas expose only the tools a team may use", () => {
     assert.deepEqual(names, ["check_server_health"]);
 });
 
-test("every tool declares an effect, and exactly one mutates", () => {
+test("exactly two tools mutate, and they are the two that should", () => {
     const tools = defaultRegistry.list();
-    const writes = tools.filter((t) => t.effect === "write");
-    assert.equal(writes.length, 1);
-    assert.equal(writes[0].name, "restart_service");
+    const writes = tools.filter((t) => t.effect === "write").map((t) => t.name).sort();
+    assert.deepEqual(writes, ["create_task", "restart_service"]);
+
     for (const t of tools) {
         assert.ok(t.parameters && typeof t.parameters === "object", `${t.name} has no schema`);
         assert.ok(t.description.length > 20, `${t.name} description too thin for a model to choose on`);

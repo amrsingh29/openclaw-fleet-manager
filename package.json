@@ -10,6 +10,7 @@
     "convex": "convex dev",
     "ui": "npm --prefix mission-control-dashboard run dev",
     "agent": "tsx scripts/agent-runner.ts",
+    "agents": "tsx scripts/agents.ts",
     "seed": "convex run seed:populate && convex run init:setupEnterprise && convex run maintenance:repair",
     "task": "tsx scripts/new-task.ts",
     "typecheck": "tsc -p tsconfig.json",

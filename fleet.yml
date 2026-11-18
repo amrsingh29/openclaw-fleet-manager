@@ -63,6 +63,9 @@ scanAllowlist:
 policies:
   read: auto
   write: propose_only
+  # create_task only. Delegation files work for a teammate; it does not stop a
+  # service, so gating it would leave the commander unable to assign anything.
+  delegate: auto
 
 # Tool-call round trips one task may make before it must answer. Raise this for
 # genuinely investigative missions, lower it if a model loops.

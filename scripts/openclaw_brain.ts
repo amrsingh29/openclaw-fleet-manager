@@ -10,6 +10,7 @@ import { createProvider, ChatMessage, LlmProvider } from "./llm/index.js";
 import { ToolRegistry, defaultRegistry, WriteGate } from "./tools/registry.js";
 import { runTurn, ToolEvent } from "./agent-turn.js";
 import { policyDefaults, listServiceNames } from "./fleet-config.js";
+import type { FleetBackend } from "./tools/backend.js";
 
 dotenv.config({ path: ".env" });
 dotenv.config({ path: ".env.local" });
@@ -28,17 +29,29 @@ export class AgentBrain {
     private provider: LlmProvider;
     private registry: ToolRegistry;
     private callbacks: BrainCallbacks;
+    private backend?: FleetBackend;
+    private agentId?: string;
 
     constructor(
         agentName: string,
         bio: string,
-        opts: { provider?: LlmProvider; registry?: ToolRegistry; callbacks?: BrainCallbacks } = {},
+        opts: {
+            provider?: LlmProvider;
+            registry?: ToolRegistry;
+            callbacks?: BrainCallbacks;
+            /** Mission Control access, enabling create_task. */
+            backend?: FleetBackend;
+            /** The agent's own id, so delegation can attribute and avoid self-assignment. */
+            agentId?: string;
+        } = {},
     ) {
         this.agentName = agentName;
         this.bio = bio || `You are ${agentName}.`;
         this.provider = opts.provider ?? createProvider().provider;
         this.registry = opts.registry ?? defaultRegistry;
         this.callbacks = opts.callbacks ?? {};
+        this.backend = opts.backend;
+        this.agentId = opts.agentId;
     }
 
     get model(): string {
@@ -65,12 +78,17 @@ export class AgentBrain {
                 // Chat gets tools, but only the read-only ones: a chat message
                 // should not restart a service without a task and an approval
                 // trail behind it.
+                // Chat gets reads plus delegation; a chat message should not be
+                // able to restart a service without a task behind it.
                 allowTools: this.registry
                     .list()
-                    .filter((t) => t.effect === "read")
+                    .filter((t) => t.effect === "read" || t.name === "create_task")
                     .map((t) => t.name),
                 gate: this.policyGate(),
                 maxRounds: 3,
+                agentName: this.agentName,
+                agentId: this.agentId,
+                backend: this.backend,
                 onToolEvent: this.callbacks.onToolEvent,
                 onNeedsApproval: this.callbacks.onNeedsApproval,
             });
@@ -97,6 +115,9 @@ export class AgentBrain {
                 messages: [{ role: "user", content: `TASK: ${title}\nDETAILS: ${description}` }],
                 allowTools: this.registry.list().map((t) => t.name),
                 gate: this.policyGate(),
+                agentName: this.agentName,
+                agentId: this.agentId,
+                backend: this.backend,
                 onToolEvent: this.callbacks.onToolEvent,
                 onNeedsApproval: this.callbacks.onNeedsApproval,
             });
@@ -139,8 +160,13 @@ If the commander asks about "this host", "the system", "the machine" or similar 
 exactly one service is declared, use that service. Do not refuse for lack of a name
 when there is only one candidate.
 
-Never invent a hostname, service name, or file path. If a tool refuses or returns an
-error, report it plainly rather than retrying with guessed arguments.
+Use create_task when work belongs to a specialist rather than to you. Delegating is
+not passing the buck: it is how a squad with distinct roles actually divides a problem.
+State the assignee by name, and prefer doing the small thing yourself over raising a
+mission for a one-line answer.
+
+Never invent a hostname, service name, file path, or agent name. If a tool refuses or
+returns an error, report it plainly rather than retrying with guessed arguments.
 
 SENTIENT SILENCE
 If you are observing a conversation and determine that no response is necessary from
@@ -166,9 +192,15 @@ then report the RESULT.
 TOOLS
 ${toolList}
 
+DELEGATION
+You have create_task. If this mission is coordination rather than hands-on work, split
+it: assign the parts to the agents whose roles fit, then report what you dispatched.
+Do not create a task for work you can finish yourself with the tools you already have,
+and do not assign a mission to yourself.
+
 RULES
 - Only the services declared in fleet.yml exist. Never invent a hostname, service
-  name, or file path; if you need one that is not declared, say so.
+  name, file path, or agent name; if you need one that is not declared, say so.
 - Prefer the least invasive tool that answers the question. Read before you write.
 - A restart requires approval under the default policy. If a tool says it needs
   approval, report that you have raised it and stop; do not try to work around it.
@@ -190,7 +222,15 @@ do not fabricate plausible-looking metrics.
     private policyGate(): WriteGate {
         const defaults = policyDefaults();
         return async (tool) => {
-            const setting = tool.effect === "write" ? defaults.write : defaults.read;
+            // Delegation gets its own tier: filing work for a teammate is not the
+            // same risk as stopping a service, and gating it would leave the
+            // commander unable to assign anything without a human in the loop.
+            const setting =
+                tool.name === "create_task"
+                    ? defaults.delegate
+                    : tool.effect === "write"
+                      ? defaults.write
+                      : defaults.read;
             if (setting === "auto") return { allow: true };
             return {
                 allow: false,

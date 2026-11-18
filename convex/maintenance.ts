@@ -43,7 +43,7 @@ export const repair = mutation({
             byName.set(key, list);
         }
 
-        for (const [name, group] of byName) {
+        for (const [, group] of byName) {
             if (group.length < 2) {
                 report.kept.push(group[0].name);
                 continue;

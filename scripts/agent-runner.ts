@@ -9,6 +9,7 @@ import * as dotenv from "dotenv";
 import { AgentBrain, BrainCallbacks } from "./openclaw_brain.js";
 import { ToolEvent } from "./agent-turn.js";
 import { defaultRegistry } from "./tools/registry.js";
+import { ConvexBackend } from "./tools/convex-backend.js";
 import { listServiceNames } from "./fleet-config.js";
 
 dotenv.config({ path: ".env" });
@@ -71,11 +72,18 @@ const callbacks: BrainCallbacks = {
 };
 
 let brain: AgentBrain | null = null;
+let agentIdRef: any = null;
 
 function getBrain(): AgentBrain {
     if (!brain) {
         console.log(`🧠 Initialising brain for ${AGENT_NAME}...`);
-        brain = new AgentBrain(AGENT_NAME, soulContent, { callbacks });
+        brain = new AgentBrain(AGENT_NAME, soulContent, {
+            callbacks,
+            // The backend is what lets this agent delegate. Passing the id too so
+            // create_task can refuse a mission assigned to itself.
+            backend: new ConvexBackend(client),
+            agentId: agentIdRef,
+        });
         console.log(`   provider=${brain.providerId} model=${brain.model}`);
     }
     return brain;
@@ -228,6 +236,7 @@ async function main(): Promise<void> {
         role: AGENT_ROLE,
         sessionKey: SESSION_KEY,
     });
+    agentIdRef = agentId;
     console.log(`✅ Registered as ${agentId}`);
 
     setInterval(() => {

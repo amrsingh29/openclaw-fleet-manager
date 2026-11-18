@@ -97,10 +97,30 @@ demonstrate without any setup.
 | `check_server_health` | read | CPU, memory, disk, uptime, service state |
 | `fetch_latest_logs` | read | Tail a declared log file, clamped to 200 lines |
 | `scan_network` | read | TCP connect probe of allowlisted host and ports |
+| `create_task` | **write** | Assign a mission to a named agent |
 | `restart_service` | **write** | launchd / systemd / docker restart, then re-probes |
 
-There is deliberately no `exec_command`. Four typed, auditable tools cover the incident
+There is deliberately no `exec_command`. Five typed, auditable tools cover the incident
 response story, and arbitrary shell would make the guardrails decorative.
+
+### Delegation
+
+`create_task` is what makes a commander a commander. Give the leader a mission and it
+splits the work: it resolves the assignee name against the real roster and files the task
+against that agent's id, so only that agent's runner claims it.
+
+```json
+{ "title": "Collect live metrics", "assignee": "Shuri", "description": "..." }
+```
+
+Roles resolve too, so `"assignee": "the SRE"` finds Shuri. Unknown names are refused and
+the real roster is listed back, the same way an undeclared service is refused. Naming
+nobody files the task in the inbox for whoever is free, which is the honest default when
+it genuinely does not matter.
+
+Two things it declines on purpose: assigning a mission to the agent that asked (a loop
+rather than delegation), and pretending success when the assignee is offline — in that
+case it says the task will wait, so the commander can decide whether to act now.
 
 To add a tool, write it against the `FleetTool` interface in `scripts/tools/types.ts` and
 add one line to `scripts/tools/registry.ts`. Tools are registered explicitly rather than
@@ -112,9 +132,15 @@ scanned from a directory, so a reviewer can see exactly what the fleet can do.
 
 ```yaml
 policies:
-  read: auto             # reads just run
-  write: propose_only    # writes raise an approval card
+  read: auto              # reads just run
+  write: propose_only     # restarts raise an approval card
+  delegate: auto          # create_task just runs
 ```
+
+Delegation has its own tier because it is a different kind of write: filing work for a
+teammate is not the same risk as stopping a service. Gating it by default would leave a
+commander unable to assign anything without a human, which is the whole point of having
+one.
 
 `auto` executes. `propose_only` raises a proposal in the dashboard for a human to approve
 or deny. `manual` refuses outright.
@@ -162,6 +188,7 @@ account: useful, and not free of risk.
 | `npm run ui` | Just the dashboard |
 | `npm run agent -- --config=agents/configs/jarvis.soul.md` | One agent |
 | `npm run task -- "Title" "Description"` | Create a mission from the CLI |
+| `npm run agents` | Start every agent without the dashboard |
 | `npm run seed` | Re-seed teams, agents, policies |
 | `npm test` | Guardrail and argument-parsing tests |
 | `npm run typecheck` | Typecheck the runner, providers, and tools |
